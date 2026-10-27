@@ -87,7 +87,7 @@ class DailyShift {
   };
 
   factory DailyShift.fromJson(Map<String, dynamic> json) => DailyShift(
-    id: json['id'] as String? ?? UniqueKey().toString(),
+    id: json['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
     date: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
     uberGross: (json['uberGross'] as num?)?.toDouble() ?? 0.0,
     boltGross: (json['boltGross'] as num?)?.toDouble() ?? 0.0,
@@ -102,9 +102,4 @@ class DailyShift {
     platformFeePercent: (json['platformFeePercent'] as num?)?.toDouble() ?? 25.0,
     fleetCommissionPercent: (json['fleetCommissionPercent'] as num?)?.toDouble() ?? 0.0,
   );
-}
-
-class UniqueKey {
-  @override
-  String toString() => DateTime.now().millisecondsSinceEpoch.toString();
 }

@@ -50,7 +50,7 @@ jobs:
 
       - name: Compilar APK Android (Release)
         run: |
-          flutter build apk --release
+          flutter build apk --release --no-tree-shake-icons
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/VoltDrive.apk
           ls -la build/app/outputs/flutter-apk/
 

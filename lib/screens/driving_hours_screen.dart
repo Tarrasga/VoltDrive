@@ -570,7 +570,7 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.slate.shade900,
+                color: AppTheme.darkSurface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppTheme.darkBorder),
               ),
