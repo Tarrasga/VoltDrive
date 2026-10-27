@@ -24,7 +24,7 @@ class AppUpdateInfo {
 
 class UpdateService {
   // Versão atual instalada da app
-  static const String currentVersion = '1.0.13';
+  static const String currentVersion = '1.0.20';
   static const String repoUrl = 'https://api.github.com/repos/Tarrasga/VoltDrive/releases/latest';
 
   static Future<AppUpdateInfo?> checkForUpdate() async {

@@ -91,8 +91,8 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: VoltDrive v1.0.${{ github.run_number }} (Instalador Android)
+          tag_name: v1.0.20
+          name: VoltDrive v1.0.20 (Instalador Android Oficial)
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
