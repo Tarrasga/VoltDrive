@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/auth_lock_screen.dart';
+import 'screens/auth_register_screen.dart';
 import 'screens/home_navigation_screen.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
@@ -56,15 +57,28 @@ class _VoltDriveAppState extends State<VoltDriveApp> {
 
   @override
   Widget build(BuildContext context) {
-    final showLock = AuthService.isLockEnabled && !AuthService.isUnlocked;
+    Widget homeScreen;
+
+    if (!AuthService.hasCredentials) {
+      // 1º Acesso após instalação: Configurar Email e Palavra-passe do Motorista
+      homeScreen = AuthRegisterScreen(
+        onRegistered: () => setState(() {}),
+      );
+    } else if (AuthService.isLockEnabled && !AuthService.isUnlocked) {
+      // Acesso bloqueado: Solicitar Biometria (Digital / Facial) ou Palavra-passe
+      homeScreen = AuthLockScreen(
+        onUnlocked: () => setState(() {}),
+      );
+    } else {
+      // Desbloqueado: Ecrã principal do VoltDrive
+      homeScreen = const HomeNavigationScreen();
+    }
 
     return MaterialApp(
       title: 'VoltDrive - TVDE VE',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: showLock
-          ? AuthLockScreen(onUnlocked: () => setState(() {}))
-          : const HomeNavigationScreen(),
+      home: homeScreen,
     );
   }
 }

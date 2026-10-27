@@ -93,25 +93,23 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.28"
-          name: "VoltDrive v1.0.28 (Chave de Assinatura Oficial Permanente)"
+          tag_name: "v1.0.29"
+          name: "VoltDrive v1.0.29 (Registo Inicial Obrigatorio e Associacao de Conta)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.28 - Assinatura Digital Oficial Permanente
+            ## ⚡ VoltDrive v1.0.29 - Registo de Conta no 1º Acesso & Keystore Oficial
 
-            ### 🚀 Correção Crítica de Atualizações:
-            1. **🔑 Chave de Assinatura Oficial Permanente (VoltDrive Keystore)**:
-               - Corrigido o erro que forçava a desinstalar a aplicação anterior para instalar a nova.
-               - A partir desta versão (v1.0.28), todas as atualizações futuras partilham o mesmo certificado permanente, permitindo atualizar por cima sem desinstalar e sem perder turnos ou dados gravados!
-            2. **🏷️ Versão no Ecrã de Login**:
-               - Crachá v1.0.28 visível no topo e no rodapé do ecrã de desbloqueio.
-            3. **👆 Desbloqueio Biométrico por Impressão Digital e Facial**:
-               - Acesso instantâneo com leitor de impressões digitais ou reconhecimento facial Samsung Knox.
+            ### 🚀 Novidades desta versão:
+            1. **👤 Configuração de Conta no 1º Acesso**:
+               - Ao instalar a aplicação pela primeira vez, o VoltDrive apresenta o ecrã inicial de configuração de conta (Email e Palavra-passe).
+               - Todos os dados, turnos, lucros e perfil do Renault Zoe ficam permanentemente associados à conta do motorista.
+            2. **🔑 Chave de Assinatura Oficial Permanente (VoltDrive Keystore)**:
+               - Permite atualizar o VoltDrive sem nunca mais precisar de desinstalar a aplicação.
+            3. **👆 Desbloqueio Biométrico (Digital e Facial)**:
+               - Desbloqueio em 1 segundo com sensor Samsung Galaxy ou câmara frontal.
             4. **🎯 Metas Financeiras TVDE**:
-               - Divisão automática pelos dias restantes até fechar o mês.
-            5. **⚡ Atualização Automática In-App**:
-               - Download e instalação direta sem passar pelo Chrome.
+               - Divisão automática pelos dias que faltam para o fim do mês.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
