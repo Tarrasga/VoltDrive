@@ -1,66 +1,71 @@
-name: Build Android APK - VoltDrive
+name: Build VoltDrive Android APK
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-apk:
-    name: Build & Release Android APK
+    name: Compilar APK VoltDrive
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Código
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Flutter
+      - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
 
-      - name: Get Dependencies
+      - name: Instalar Dependências
         run: flutter pub get
 
-      - name: Build Android APK (Release)
-        run: flutter build apk --release
+      - name: Compilar APK Android
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/VoltDrive.apk
 
-      - name: Upload APK as Artifact
+      - name: Guardar Ficheiro VoltDrive.apk como Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VoltDrive-Android-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: VoltDrive-APK
+          path: build/app/outputs/flutter-apk/VoltDrive.apk
 
-      - name: Publish Release with APK
+      - name: Publicar Release no GitHub
         uses: softprops/action-gh-release@v2
-        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.0-${{ github.run_number }}
-          name: VoltDrive v1.0.0 (Build #${{ github.run_number }})
+          tag_name: v1.0.0-build-${{ github.run_number }}
+          name: VoltDrive v1.0.0 (Instalador Android)
           draft: false
           prerelease: false
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: build/app/outputs/flutter-apk/VoltDrive.apk
           body: |
-            ### ⚡ VoltDrive - Assistente TVDE Elétrico (Renault Zoe Edition)
+            ## ⚡ VoltDrive - Assistente TVDE Elétrico (Renault Zoe Edition)
             
-            Ficheiro APK pronto a instalar no teu telemóvel Android.
+            O instalador Android está pronto para ser descarregado diretamente no teu telemóvel!
             
-            **Novidades:**
-            - ⏱️ Tacógrafo de Horas de Condução TVDE (Lei 45/2018 - Limite 10h e Pausas de 45m).
-            - ⚡ Simulador Rápido de Viagem (Uber & Bolt).
-            - 🔌 Postos de Carregamento 22 kW AC / 43 kW / 50 kW / 150 kW.
-            - 🚗 Perfil Renault Zoe Z.E. 50 (52 kWh, 18.6 kWh/100km).
-            - 📊 Fecho do Dia e Balanço Financeiro.
+            ### 📥 Como instalar no telemóvel:
+            1. Toca no ficheiro **`VoltDrive.apk`** abaixo nesta página.
+            2. Quando o download terminar, clica para abrir e escolhe **Instalar**.
+            3. Se o Android pedir autorização, clica em **Permitir desta fonte** (é normal para ficheiros APK descarregados diretamente do GitHub).
+            4. O ícone do **Renault Zoe** com o nome **VoltDrive** vai aparecer no teu ecrã inicial!
             
-            **Como instalar:**
-            1. No teu telemóvel Android, descarrega o ficheiro `app-release.apk` abaixo.
-            2. Abre o ficheiro e seleciona "Instalar" (permite instalar fontes desconhecidas se pedido).
+            ### 🚀 Funcionalidades incluídas:
+            - ⏱️ **Tacógrafo de Horas TVDE**: Controlo das 10 horas máximas legais (Lei n.º 45/2018) e aviso de pausa de 45m.
+            - ⚡ **Calculadora de Viagem**: Análise de rentabilidade em segundos (comissões Uber/Bolt + consumo do Zoe).
+            - 🔌 **Postos VE 22kW**: Postos Tipo 2 da Margem Sul, Alentejo e simulador de tempo/custo de carregamento.
+            - 📊 **Fecho do Dia**: Apuramento do lucro líquido real, km rodados e média por km.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
