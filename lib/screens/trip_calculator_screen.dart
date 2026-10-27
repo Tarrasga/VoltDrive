@@ -29,6 +29,8 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
   bool _overlayGranted = false;
   bool _accessibilityEnabled = false;
   bool _isReaderPaused = false;
+  bool _uberInstalled = false;
+  bool _boltInstalled = false;
 
   @override
   void initState() {
@@ -61,11 +63,14 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
     final overlay = await AssistantService.isOverlayGranted();
     final a11y = await AssistantService.isAccessibilityEnabled();
     final paused = await AssistantService.isScreenReaderPaused();
+    final tvdeStatus = await AssistantService.getTvdeAppsStatus();
     if (mounted) {
       setState(() {
         _overlayGranted = overlay;
         _accessibilityEnabled = a11y;
         _isReaderPaused = paused;
+        _uberInstalled = tvdeStatus.uberInstalled;
+        _boltInstalled = tvdeStatus.boltInstalled;
       });
     }
   }
@@ -736,6 +741,116 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
             style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 14),
+
+          // INDICADOR DE APPS TVDE DETETADAS NO TELEMÓVEL
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.darkCard,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.darkBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.phone_android, size: 16, color: AppTheme.primaryElectric),
+                    SizedBox(width: 6),
+                    Text(
+                      'Aplicações TVDE no Telemóvel:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    // UBER DRIVER
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _uberInstalled ? const Color(0xFF0F2618) : const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _uberInstalled ? AppTheme.accentGreen.withOpacity(0.4) : AppTheme.darkBorder,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _uberInstalled ? Icons.check_circle : Icons.cancel_outlined,
+                              color: _uberInstalled ? AppTheme.accentGreen : AppTheme.textMuted,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Uber Driver', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  Text(
+                                    _uberInstalled ? 'Detetada e Pronta' : 'Não Encontrada',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: _uberInstalled ? AppTheme.accentGreen : AppTheme.textMuted,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // BOLT DRIVER
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _boltInstalled ? const Color(0xFF0F2618) : const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _boltInstalled ? AppTheme.accentGreen.withOpacity(0.4) : AppTheme.darkBorder,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _boltInstalled ? Icons.check_circle : Icons.cancel_outlined,
+                              color: _boltInstalled ? AppTheme.accentGreen : AppTheme.textMuted,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Bolt Driver', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  Text(
+                                    _boltInstalled ? 'Detetada e Pronta' : 'Não Encontrada',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: _boltInstalled ? AppTheme.accentGreen : AppTheme.textMuted,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
 
           // Passo 1: Janela Flutuante ("Aparecer em cima")
           Container(

@@ -14,6 +14,16 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.pdf.PdfDocument
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -104,6 +114,51 @@ class MainActivity: FlutterFragmentActivity() {
                         VoltAccessibilityService.instance?.disableSelf()
                     }
                     result.success(true)
+                }
+                "getTvdeAppsStatus" -> {
+                    val isUber = isPackageInstalled("com.ubercab.driver")
+                    val isBolt = isPackageInstalled("ee.mtakso.driver") || isPackageInstalled("com.bolt.driver")
+                    val res = mapOf(
+                        "uberInstalled" to isUber,
+                        "boltInstalled" to isBolt,
+                        "uberLastSeen" to VoltAccessibilityService.lastUberDetectedTime,
+                        "boltLastSeen" to VoltAccessibilityService.lastBoltDetectedTime
+                    )
+                    result.success(res)
+                }
+                "exportMonthlyPdf" -> {
+                    try {
+                        val monthName = call.argument<String>("monthName") ?: "Mês"
+                        val month = call.argument<Int>("month") ?: 1
+                        val year = call.argument<Int>("year") ?: 2026
+                        val totalGross = call.argument<Double>("totalGross") ?: 0.0
+                        val uberGross = call.argument<Double>("uberGross") ?: 0.0
+                        val boltGross = call.argument<Double>("boltGross") ?: 0.0
+                        val tips = call.argument<Double>("tips") ?: 0.0
+                        val platformFees = call.argument<Double>("platformFees") ?: 0.0
+                        val chargingCost = call.argument<Double>("chargingCost") ?: 0.0
+                        val chargingKwh = call.argument<Double>("chargingKwh") ?: 0.0
+                        val tollsCost = call.argument<Double>("tollsCost") ?: 0.0
+                        val otherExpenses = call.argument<Double>("otherExpenses") ?: 0.0
+                        val totalExpenses = call.argument<Double>("totalExpenses") ?: 0.0
+                        val netProfit = call.argument<Double>("netProfit") ?: 0.0
+                        val totalKm = call.argument<Double>("totalKm") ?: 0.0
+                        val totalHours = call.argument<Double>("totalHours") ?: 0.0
+                        val profitPerKm = call.argument<Double>("profitPerKm") ?: 0.0
+                        val profitPerHour = call.argument<Double>("profitPerHour") ?: 0.0
+                        val shifts = call.argument<List<Map<String, Any>>>("shifts") ?: emptyList()
+
+                        generateAndOpenMonthlyPdf(
+                            monthName, month, year, totalGross, uberGross, boltGross, tips,
+                            platformFees, chargingCost, chargingKwh, tollsCost, otherExpenses,
+                            totalExpenses, netProfit, totalKm, totalHours, profitPerKm, profitPerHour,
+                            shifts
+                        )
+                        result.success(true)
+                    } catch (e: Exception) {
+                        android.util.Log.e("VoltDrive", "Error generating PDF: ${e.message}", e)
+                        result.error("PDF_ERROR", e.message, null)
+                    }
                 }
                 "requestAccessibilityPermission" -> {
                     var launched = false
@@ -416,6 +471,245 @@ class MainActivity: FlutterFragmentActivity() {
                 }
             }
         }
+    }
+
+    private fun isPackageInstalled(packageName: String): Boolean {
+        return try {
+            packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun generateAndOpenMonthlyPdf(
+        monthName: String,
+        month: Int,
+        year: Int,
+        totalGross: Double,
+        uberGross: Double,
+        boltGross: Double,
+        tips: Double,
+        platformFees: Double,
+        chargingCost: Double,
+        chargingKwh: Double,
+        tollsCost: Double,
+        otherExpenses: Double,
+        totalExpenses: Double,
+        netProfit: Double,
+        totalKm: Double,
+        totalHours: Double,
+        profitPerKm: Double,
+        profitPerHour: Double,
+        shifts: List<Map<String, Any>>
+    ) {
+        val pdfDocument = PdfDocument()
+        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+        val page = pdfDocument.startPage(pageInfo)
+        val canvas = page.canvas
+
+        val paint = Paint().apply { isAntiAlias = true }
+
+        // Fundo Branco
+        canvas.drawColor(Color.WHITE)
+
+        // Banner de Cabeçalho Superior
+        paint.color = Color.parseColor("#0F172A") // Slate escuro
+        paint.style = Paint.Style.FILL
+        canvas.drawRect(0f, 0f, 595f, 75f, paint)
+
+        // Linha Ciano Elétrico
+        paint.color = Color.parseColor("#00D2FF")
+        canvas.drawRect(0f, 72f, 595f, 75f, paint)
+
+        // Título e Subtítulo
+        paint.color = Color.WHITE
+        paint.textSize = 17f
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        canvas.drawText("VOLTDRIVE TVDE - RELATÓRIO MENSAL", 30f, 38f, paint)
+
+        paint.color = Color.parseColor("#94A3B8")
+        paint.textSize = 9f
+        paint.typeface = Typeface.DEFAULT
+        canvas.drawText("Renault Zoe Z.E. 50 Edition • Gestão de Faturação e Rentabilidade Elétrica", 30f, 56f, paint)
+
+        // Etiqueta do Mês
+        paint.color = Color.parseColor("#00D2FF")
+        paint.textSize = 13f
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText(monthName.uppercase(Locale.ROOT), 565f, 44f, paint)
+        paint.textAlign = Paint.Align.LEFT
+
+        // 4 Cartões KPI Principais
+        fun drawKpiCard(x: Float, y: Float, w: Float, h: Float, title: String, value: String, valColor: Int) {
+            paint.color = Color.parseColor("#F8FAFC")
+            paint.style = Paint.Style.FILL
+            canvas.drawRoundRect(RectF(x, y, x + w, y + h), 8f, 8f, paint)
+
+            paint.color = Color.parseColor("#E2E8F0")
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 1f
+            canvas.drawRoundRect(RectF(x, y, x + w, y + h), 8f, 8f, paint)
+
+            paint.style = Paint.Style.FILL
+            paint.color = Color.parseColor("#64748B")
+            paint.textSize = 8f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText(title, x + 8f, y + 18f, paint)
+
+            paint.color = valColor
+            paint.textSize = 14f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText(value, x + 8f, y + 42f, paint)
+        }
+
+        val cardW = 125f
+        val cardH = 55f
+        val cardY = 90f
+        drawKpiCard(30f, cardY, cardW, cardH, "FATURAÇÃO BRUTA", String.format(Locale.ROOT, "%.2f €", totalGross), Color.parseColor("#0F172A"))
+        drawKpiCard(165f, cardY, cardW, cardH, "TAXAS PLATAFORMA", String.format(Locale.ROOT, "-%.2f €", platformFees), Color.parseColor("#DC2626"))
+        drawKpiCard(300f, cardY, cardW, cardH, "DESPESAS TOTAIS", String.format(Locale.ROOT, "-%.2f €", totalExpenses), Color.parseColor("#D97706"))
+        drawKpiCard(435f, cardY, cardW, cardH, "LUCRO LÍQUIDO", String.format(Locale.ROOT, "+%.2f €", netProfit), Color.parseColor("#16A34A"))
+
+        // Painel Resumo Operacional (Km, Horas, Médias e Consumo)
+        val metricsY = 160f
+        paint.color = Color.parseColor("#F1F5F9")
+        paint.style = Paint.Style.FILL
+        canvas.drawRoundRect(RectF(30f, metricsY, 565f, metricsY + 44f), 8f, 8f, paint)
+
+        paint.color = Color.parseColor("#0F172A")
+        paint.textSize = 9f
+        paint.typeface = Typeface.DEFAULT
+        val col1 = String.format(Locale.ROOT, "Uber: %.2f €  •  Bolt: %.2f €  •  Gorjetas: %.2f €", uberGross, boltGross, tips)
+        val col2 = String.format(Locale.ROOT, "Km Totais: %.0f km  •  Horas: %.1f h  •  Média: %.2f €/km  •  Média: %.2f €/h", totalKm, totalHours, profitPerKm, profitPerHour)
+        val col3 = String.format(Locale.ROOT, "Carregamento VE: %.2f € (%.1f kWh)  •  Portagens: %.2f €  •  Outros: %.2f €", chargingCost, chargingKwh, tollsCost, otherExpenses)
+
+        canvas.drawText(col1, 40f, metricsY + 14f, paint)
+        canvas.drawText(col2, 40f, metricsY + 27f, paint)
+        canvas.drawText(col3, 40f, metricsY + 40f, paint)
+
+        // Tabela Diária
+        val tableY = 220f
+        paint.color = Color.parseColor("#0F172A")
+        paint.textSize = 11f
+        paint.typeface = Typeface.DEFAULT_BOLD
+        canvas.drawText("DETALHE DIÁRIO DE TURNOS", 30f, tableY, paint)
+
+        val headerY = tableY + 8f
+        paint.color = Color.parseColor("#1E293B")
+        paint.style = Paint.Style.FILL
+        canvas.drawRect(30f, headerY, 565f, headerY + 18f, paint)
+
+        paint.color = Color.WHITE
+        paint.textSize = 8f
+        paint.typeface = Typeface.DEFAULT_BOLD
+        canvas.drawText("DATA", 35f, headerY + 12f, paint)
+        canvas.drawText("UBER", 95f, headerY + 12f, paint)
+        canvas.drawText("BOLT", 145f, headerY + 12f, paint)
+        canvas.drawText("BRUTO", 195f, headerY + 12f, paint)
+        canvas.drawText("KM", 250f, headerY + 12f, paint)
+        canvas.drawText("HORAS", 295f, headerY + 12f, paint)
+        canvas.drawText("CARREG.", 350f, headerY + 12f, paint)
+        canvas.drawText("PORTAG.", 415f, headerY + 12f, paint)
+        canvas.drawText("LUCRO LÍQ.", 485f, headerY + 12f, paint)
+
+        var curRowY = headerY + 18f
+        val rowH = 15f
+        var rowIdx = 0
+
+        for (s in shifts) {
+            if (curRowY > 780f) break // Limite seguro da página A4
+
+            paint.color = if (rowIdx % 2 == 0) Color.WHITE else Color.parseColor("#F8FAFC")
+            paint.style = Paint.Style.FILL
+            canvas.drawRect(30f, curRowY, 565f, curRowY + rowH, paint)
+
+            paint.color = Color.parseColor("#334155")
+            paint.textSize = 7.5f
+            paint.typeface = Typeface.DEFAULT
+
+            val dateStr = s["date"] as? String ?: ""
+            val u = (s["uber"] as? Number)?.toDouble() ?: 0.0
+            val b = (s["bolt"] as? Number)?.toDouble() ?: 0.0
+            val g = (s["gross"] as? Number)?.toDouble() ?: 0.0
+            val km = (s["km"] as? Number)?.toDouble() ?: 0.0
+            val h = (s["hours"] as? Number)?.toDouble() ?: 0.0
+            val c = (s["charging"] as? Number)?.toDouble() ?: 0.0
+            val t = (s["tolls"] as? Number)?.toDouble() ?: 0.0
+            val n = (s["net"] as? Number)?.toDouble() ?: 0.0
+
+            canvas.drawText(dateStr, 35f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", u), 95f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", b), 145f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", g), 195f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.0f", km), 250f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.1f h", h), 295f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", c), 350f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", t), 415f, curRowY + 10.5f, paint)
+
+            paint.color = if (n >= 0) Color.parseColor("#16A34A") else Color.parseColor("#DC2626")
+            paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", n), 485f, curRowY + 10.5f, paint)
+
+            curRowY += rowH
+            rowIdx++
+        }
+
+        // Linha de Totais da Tabela
+        paint.color = Color.parseColor("#E2E8F0")
+        paint.style = Paint.Style.FILL
+        canvas.drawRect(30f, curRowY, 565f, curRowY + 18f, paint)
+
+        paint.color = Color.parseColor("#0F172A")
+        paint.textSize = 8f
+        paint.typeface = Typeface.DEFAULT_BOLD
+        canvas.drawText("TOTAIS:", 35f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", uberGross), 95f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", boltGross), 145f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", totalGross), 195f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.0f km", totalKm), 250f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.1f h", totalHours), 295f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", chargingCost), 350f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", tollsCost), 415f, curRowY + 12f, paint)
+
+        paint.color = Color.parseColor("#16A34A")
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", netProfit), 485f, curRowY + 12f, paint)
+
+        // Rodapé da Página
+        paint.color = Color.parseColor("#94A3B8")
+        paint.textSize = 8f
+        paint.typeface = Typeface.DEFAULT
+        val nowStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ROOT).format(Date())
+        canvas.drawText("VoltDrive • Documento de gestão TVDE para motorista e contabilidade • Gerado em $nowStr", 30f, 815f, paint)
+
+        pdfDocument.finishPage(page)
+
+        // Gravar no disco em cacheDir
+        val safeMonth = monthName.replace(" ", "_").lowercase(Locale.ROOT)
+        val file = File(cacheDir, "VoltDrive_Registo_Mensal_${safeMonth}.pdf")
+        if (file.exists()) file.delete()
+
+        FileOutputStream(file).use { out ->
+            pdfDocument.writeTo(out)
+        }
+        pdfDocument.close()
+
+        // Abrir o PDF com o Intent do Android (Acrobat, Drive PDF, Samsung, etc.)
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            this@MainActivity,
+            "$packageName.fileprovider",
+            file
+        )
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/pdf")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val chooser = Intent.createChooser(intent, "Abrir Relatório Mensal PDF").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(chooser)
     }
 
     private fun isAccessibilitySettingsEnabled(): Boolean {

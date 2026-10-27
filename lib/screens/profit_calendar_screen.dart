@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/daily_shift.dart';
 import '../models/vehicle_profile.dart';
 import '../models/financial_goals.dart';
+import '../services/assistant_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'financial_goals_screen.dart';
@@ -98,6 +99,89 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
     });
   }
 
+  Future<void> _exportMonthlyPdf() async {
+    final monthShifts = _getShiftsForCurrentMonth();
+    if (monthShifts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não existem turnos registados para o mês selecionado.'),
+          backgroundColor: AppTheme.warningAmber,
+        ),
+      );
+      return;
+    }
+
+    // Ordenar por data crescente
+    monthShifts.sort((a, b) => a.date.compareTo(b.date));
+
+    final totalGross = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalGross);
+    final uberGross = monthShifts.fold<double>(0.0, (sum, s) => sum + s.uberGross);
+    final boltGross = monthShifts.fold<double>(0.0, (sum, s) => sum + s.boltGross);
+    final tips = monthShifts.fold<double>(0.0, (sum, s) => sum + s.tips);
+    final platformFees = monthShifts.fold<double>(0.0, (sum, s) => sum + s.platformFeeAmount);
+    final chargingCost = monthShifts.fold<double>(0.0, (sum, s) => sum + s.chargingCost);
+    final chargingKwh = monthShifts.fold<double>(0.0, (sum, s) => sum + s.chargingKwh);
+    final tollsCost = monthShifts.fold<double>(0.0, (sum, s) => sum + s.tollsCost);
+    final otherExpenses = monthShifts.fold<double>(0.0, (sum, s) => sum + s.otherExpenses);
+    final totalExpenses = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalExpenses);
+    final netProfit = monthShifts.fold<double>(0.0, (sum, s) => sum + s.netProfit);
+    final totalKm = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalKm);
+    final totalHours = monthShifts.fold<double>(0.0, (sum, s) => sum + s.hoursWorked);
+    final profitPerKm = totalKm > 0 ? (netProfit / totalKm) : 0.0;
+    final profitPerHour = totalHours > 0 ? (netProfit / totalHours) : 0.0;
+
+    const ptMonths = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    final monthName = '${ptMonths[_selectedDate.month - 1]} ${_selectedDate.year}';
+
+    final shiftsData = monthShifts.map((s) {
+      final dayStr = '${s.date.day.toString().padLeft(2, '0')}/${s.date.month.toString().padLeft(2, '0')}';
+      return {
+        'date': dayStr,
+        'uber': s.uberGross,
+        'bolt': s.boltGross,
+        'gross': s.totalGross,
+        'km': s.totalKm,
+        'hours': s.hoursWorked,
+        'charging': s.chargingCost,
+        'tolls': s.tollsCost,
+        'net': s.netProfit,
+      };
+    }).toList();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('A gerar PDF mensal de $monthName...'),
+        backgroundColor: AppTheme.primaryElectric,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    await AssistantService.exportMonthlyPdf(
+      monthName: monthName,
+      month: _selectedDate.month,
+      year: _selectedDate.year,
+      totalGross: totalGross,
+      uberGross: uberGross,
+      boltGross: boltGross,
+      tips: tips,
+      platformFees: platformFees,
+      chargingCost: chargingCost,
+      chargingKwh: chargingKwh,
+      tollsCost: tollsCost,
+      otherExpenses: otherExpenses,
+      totalExpenses: totalExpenses,
+      netProfit: netProfit,
+      totalKm: totalKm,
+      totalHours: totalHours,
+      profitPerKm: profitPerKm,
+      profitPerHour: profitPerHour,
+      shifts: shiftsData,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -117,6 +201,11 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.primaryElectric),
+            tooltip: 'Exportar Relatório Mensal PDF',
+            onPressed: _exportMonthlyPdf,
+          ),
           IconButton(
             icon: const Icon(Icons.track_changes_rounded, color: AppTheme.accentGreen),
             tooltip: 'Metas & Ritmo Diário',
@@ -338,6 +427,20 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                   _buildStatItem('Média / Dia', '${avgNetPerDay.toStringAsFixed(0)} €'),
                   _buildStatItem('Média / Km', '${avgNetPerKm.toStringAsFixed(2)} €'),
                 ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _exportMonthlyPdf,
+                  icon: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.primaryElectric, size: 18),
+                  label: const Text('Exportar Registo Mensal em PDF', style: TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.primaryElectric),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
               ),
             ],
           ),

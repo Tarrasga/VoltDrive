@@ -17,6 +17,20 @@ class LocationResult {
   String get googleMapsUrl => 'https://maps.google.com/?q=$latitude,$longitude';
 }
 
+class TvdeAppsStatus {
+  final bool uberInstalled;
+  final bool boltInstalled;
+  final int uberLastSeen;
+  final int boltLastSeen;
+
+  TvdeAppsStatus({
+    required this.uberInstalled,
+    required this.boltInstalled,
+    required this.uberLastSeen,
+    required this.boltLastSeen,
+  });
+}
+
 class AssistantService {
   static const MethodChannel _channel = MethodChannel('com.voltdrive.app/assistant');
 
@@ -71,6 +85,74 @@ class AssistantService {
     try {
       await _channel.invokeMethod('stopAccessibilityService');
     } catch (_) {}
+  }
+
+  static Future<TvdeAppsStatus> getTvdeAppsStatus() async {
+    try {
+      final map = await _channel.invokeMapMethod<String, dynamic>('getTvdeAppsStatus');
+      return TvdeAppsStatus(
+        uberInstalled: map?['uberInstalled'] as bool? ?? false,
+        boltInstalled: map?['boltInstalled'] as bool? ?? false,
+        uberLastSeen: (map?['uberLastSeen'] as num?)?.toInt() ?? 0,
+        boltLastSeen: (map?['boltLastSeen'] as num?)?.toInt() ?? 0,
+      );
+    } catch (_) {
+      return TvdeAppsStatus(
+        uberInstalled: false,
+        boltInstalled: false,
+        uberLastSeen: 0,
+        boltLastSeen: 0,
+      );
+    }
+  }
+
+  static Future<bool> exportMonthlyPdf({
+    required String monthName,
+    required int month,
+    required int year,
+    required double totalGross,
+    required double uberGross,
+    required double boltGross,
+    required double tips,
+    required double platformFees,
+    required double chargingCost,
+    required double chargingKwh,
+    required double tollsCost,
+    required double otherExpenses,
+    required double totalExpenses,
+    required double netProfit,
+    required double totalKm,
+    required double totalHours,
+    required double profitPerKm,
+    required double profitPerHour,
+    required List<Map<String, dynamic>> shifts,
+  }) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('exportMonthlyPdf', {
+        'monthName': monthName,
+        'month': month,
+        'year': year,
+        'totalGross': totalGross,
+        'uberGross': uberGross,
+        'boltGross': boltGross,
+        'tips': tips,
+        'platformFees': platformFees,
+        'chargingCost': chargingCost,
+        'chargingKwh': chargingKwh,
+        'tollsCost': tollsCost,
+        'otherExpenses': otherExpenses,
+        'totalExpenses': totalExpenses,
+        'netProfit': netProfit,
+        'totalKm': totalKm,
+        'totalHours': totalHours,
+        'profitPerKm': profitPerKm,
+        'profitPerHour': profitPerHour,
+        'shifts': shifts,
+      });
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<bool> requestAccessibilityPermission() async {

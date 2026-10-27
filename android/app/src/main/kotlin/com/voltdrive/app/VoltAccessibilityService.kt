@@ -21,6 +21,8 @@ class VoltAccessibilityService : AccessibilityService() {
         var lastOfferTimestamp = 0L
         var lastGrossFare = 0.0
         var lastDistanceKm = 0.0
+        var lastUberDetectedTime = 0L
+        var lastBoltDetectedTime = 0L
     }
 
     private val pricePattern = Pattern.compile("(?:(?:€|EUR)\\s*([0-9]+[.,][0-9]{2})|([0-9]+[.,][0-9]{2})\\s*(?:€|EUR))", Pattern.CASE_INSENSITIVE)
@@ -86,6 +88,13 @@ class VoltAccessibilityService : AccessibilityService() {
 
         val isUber = pkg.contains("ubercab.driver")
         val isBolt = pkg.contains("mtakso.driver") || pkg.contains("bolt.driver")
+
+        if (isUber) {
+            lastUberDetectedTime = System.currentTimeMillis()
+        }
+        if (isBolt) {
+            lastBoltDetectedTime = System.currentTimeMillis()
+        }
 
         if (!isUber && !isBolt) return
 
