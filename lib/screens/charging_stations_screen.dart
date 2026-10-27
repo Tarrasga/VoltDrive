@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/charging_station.dart';
 import '../models/vehicle_profile.dart';
+import '../services/assistant_service.dart';
 import '../services/stations_data.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
@@ -18,17 +19,134 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
   String _selectedCity = 'Todas';
   VehicleProfile _profile = VehicleProfile();
 
+  LocationResult? _userLocation;
+  bool _isLoadingLocation = false;
+  StationSortOption _sortOption = StationSortOption.closest;
+
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _fetchCurrentLocation();
   }
 
   Future<void> _loadProfile() async {
     final prof = await StorageService.loadVehicleProfile();
-    setState(() {
-      _profile = prof;
-    });
+    if (mounted) {
+      setState(() {
+        _profile = prof;
+      });
+    }
+  }
+
+  Future<void> _fetchCurrentLocation() async {
+    setState(() => _isLoadingLocation = true);
+    try {
+      final loc = await AssistantService.getCurrentLocation();
+      if (mounted) {
+        setState(() {
+          _userLocation = loc;
+          _isLoadingLocation = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingLocation = false);
+      }
+    }
+  }
+
+  void _openGpsNavigation(ChargingStation station, {bool useWaze = false}) {
+    if (useWaze) {
+      final wazeUrl = 'https://waze.com/ul?ll=${station.latitude},${station.longitude}&navigate=yes';
+      AssistantService.openUrl(wazeUrl);
+    } else {
+      final mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=${station.latitude},${station.longitude}';
+      AssistantService.openUrl(mapsUrl);
+    }
+  }
+
+  void _showNavigationOptions(BuildContext context, ChargingStation station) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.darkSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.darkBorder,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Navegar para ${station.name}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  station.address,
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF33CCFF),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _openGpsNavigation(station, useWaze: true);
+                        },
+                        icon: const Icon(Icons.navigation, size: 20),
+                        label: const Text('Waze', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryElectric,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _openGpsNavigation(station, useWaze: false);
+                        },
+                        icon: const Icon(Icons.map, size: 20),
+                        label: const Text('Google Maps', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showChargingEstimator(BuildContext context, ChargingStation station) {
@@ -50,6 +168,10 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
             final estimatedMins = station.estimateChargingMinutes(kwhNeeded);
             final estimatedCost = station.estimateChargingCost(kwhNeeded);
             final homeCost = kwhNeeded * _profile.homeKwhPrice;
+
+            final distText = _userLocation != null
+                ? station.formattedDistanceTo(_userLocation!.latitude, _userLocation!.longitude)
+                : null;
 
             return Padding(
               padding: EdgeInsets.only(
@@ -86,7 +208,7 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimary),
                             ),
                             Text(
-                              '${station.operatorName} • Potência: ${station.powerKw.toInt()} kW',
+                              '${station.operatorName} • Potência: ${station.powerKw.toInt()} kW${distText != null ? " • A $distText" : ""}',
                               style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                             ),
                           ],
@@ -95,7 +217,7 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
                     ],
                   ),
                   const Divider(color: AppTheme.darkBorder, height: 24),
-                  const Text('Simulador de Carga:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text('Simulador de Carga Renault Zoe:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 12),
 
                   // SLIDERS BATERIA ATUAL -> PRETENDIDA
@@ -195,18 +317,40 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
                   ),
 
                   const SizedBox(height: 18),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('A navegar para ${station.name}...'),
-                          backgroundColor: AppTheme.primaryElectric,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _openGpsNavigation(station, useWaze: true);
+                          },
+                          icon: const Icon(Icons.navigation, color: Color(0xFF33CCFF)),
+                          label: const Text('Waze', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF33CCFF)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.navigation_outlined),
-                    label: const Text('Abrir no GPS (Waze / Google Maps)'),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _openGpsNavigation(station, useWaze: false);
+                          },
+                          icon: const Icon(Icons.map, color: Colors.black),
+                          label: const Text('Google Maps', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryElectric,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -223,6 +367,9 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
       query: _searchController.text,
       category: _selectedCategory,
       city: _selectedCity,
+      userLat: _userLocation?.latitude,
+      userLng: _userLocation?.longitude,
+      sortBy: _sortOption,
     );
 
     return Scaffold(
@@ -235,16 +382,52 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
             Text('Postos de Carregamento VE'),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: _isLoadingLocation
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryElectric),
+                  )
+                : const Icon(Icons.my_location, color: AppTheme.primaryElectric),
+            tooltip: 'Atualizar Localização (GPS)',
+            onPressed: _isLoadingLocation ? null : _fetchCurrentLocation,
+          ),
+        ],
       ),
       body: Column(
         children: [
+          // BARRA INFORMATIVA DE GPS
+          if (_userLocation != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              color: AppTheme.primaryElectric.withOpacity(0.08),
+              child: Row(
+                children: [
+                  const Icon(Icons.near_me, size: 14, color: AppTheme.primaryElectric),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      'Postos ordenados por distância a partir da tua localização GPS',
+                      style: TextStyle(fontSize: 11, color: AppTheme.primaryElectric, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text(
+                    '${filtered.length} postos',
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                  ),
+                ],
+              ),
+            ),
+
           // CAMPO DE PESQUISA
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Pesquisar por nome, rua, cidade...',
+                hintText: 'Pesquisar por nome, rua, cidade, operador...',
                 prefixIcon: const Icon(Icons.search, color: AppTheme.primaryElectric),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -260,24 +443,84 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
             ),
           ),
 
+          // CRITÉRIOS DE ORDENAÇÃO
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            child: Row(
+              children: [
+                const Text('Ordenar: ', style: TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 4),
+                ChoiceChip(
+                  avatar: const Icon(Icons.near_me, size: 14, color: AppTheme.primaryElectric),
+                  label: const Text('Mais Próximos'),
+                  selected: _sortOption == StationSortOption.closest,
+                  onSelected: (sel) {
+                    if (sel) setState(() => _sortOption = StationSortOption.closest);
+                  },
+                  selectedColor: AppTheme.primaryElectric.withOpacity(0.2),
+                ),
+                const SizedBox(width: 6),
+                ChoiceChip(
+                  avatar: const Icon(Icons.bolt, size: 14, color: AppTheme.warningAmber),
+                  label: const Text('Maior Potência'),
+                  selected: _sortOption == StationSortOption.power,
+                  onSelected: (sel) {
+                    if (sel) setState(() => _sortOption = StationSortOption.power);
+                  },
+                  selectedColor: AppTheme.warningAmber.withOpacity(0.2),
+                ),
+                const SizedBox(width: 6),
+                ChoiceChip(
+                  avatar: const Icon(Icons.euro, size: 14, color: AppTheme.accentGreen),
+                  label: const Text('Menor Preço'),
+                  selected: _sortOption == StationSortOption.price,
+                  onSelected: (sel) {
+                    if (sel) setState(() => _sortOption = StationSortOption.price);
+                  },
+                  selectedColor: AppTheme.accentGreen.withOpacity(0.2),
+                ),
+                const SizedBox(width: 6),
+                ChoiceChip(
+                  avatar: const Icon(Icons.ev_station, size: 14, color: Colors.cyan),
+                  label: const Text('Mais Vagas'),
+                  selected: _sortOption == StationSortOption.available,
+                  onSelected: (sel) {
+                    if (sel) setState(() => _sortOption = StationSortOption.available);
+                  },
+                  selectedColor: Colors.cyan.withOpacity(0.2),
+                ),
+              ],
+            ),
+          ),
+
           // FILTROS DE CIDADE E VELOCIDADE
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             child: Row(
               children: [
                 // CIDADES
-                DropdownButton<String>(
-                  value: _selectedCity,
-                  dropdownColor: AppTheme.darkSurface,
-                  underline: const SizedBox(),
-                  style: const TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 13),
-                  items: StationsData.availableCities.map((city) {
-                    return DropdownMenuItem(value: city, child: Text(city));
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedCity = val);
-                  },
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.darkSurface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.darkBorder),
+                  ),
+                  child: DropdownButton<String>(
+                    value: _selectedCity,
+                    dropdownColor: AppTheme.darkSurface,
+                    underline: const SizedBox(),
+                    isDense: true,
+                    style: const TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 12),
+                    items: StationsData.availableCities.map((city) {
+                      return DropdownMenuItem(value: city, child: Text(city));
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => _selectedCity = val);
+                    },
+                  ),
                 ),
                 const SizedBox(width: 8),
 
@@ -313,7 +556,7 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
 
           // LISTA DE POSTOS
           Expanded(
@@ -322,6 +565,7 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
                     child: Text('Nenhum posto encontrado com estes filtros.', style: TextStyle(color: AppTheme.textMuted)),
                   )
                 : ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 20),
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final station = filtered[index];
@@ -342,7 +586,12 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
       speedColor = AppTheme.accentGreen;
     }
 
+    final distText = _userLocation != null
+        ? station.formattedDistanceTo(_userLocation!.latitude, _userLocation!.longitude)
+        : null;
+
     return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => _showChargingEstimator(context, station),
@@ -379,23 +628,54 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: speedColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: speedColor.withOpacity(0.4)),
-                    ),
-                    child: Text(
-                      '${station.powerKw.toInt()} kW',
-                      style: TextStyle(color: speedColor, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: speedColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: speedColor.withOpacity(0.4)),
+                        ),
+                        child: Text(
+                          '${station.powerKw.toInt()} kW',
+                          style: TextStyle(color: speedColor, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                      if (distText != null) ...[
+                        const SizedBox(height: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.primaryElectric.withOpacity(0.4)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.near_me, size: 10, color: AppTheme.primaryElectric),
+                              const SizedBox(width: 3),
+                              Text(
+                                distText,
+                                style: const TextStyle(
+                                  color: AppTheme.primaryElectric,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Text(station.address, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-              const Divider(color: AppTheme.darkBorder, height: 20),
+              const Divider(color: AppTheme.darkBorder, height: 18),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -417,10 +697,18 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
                         '${station.availablePlugs}/${station.totalPlugs} Livres',
                         style: const TextStyle(fontSize: 12, color: AppTheme.accentGreen, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Text(
                         '~${station.estimatedPricePerKwh.toStringAsFixed(2)} €/kWh',
                         style: const TextStyle(fontSize: 12, color: AppTheme.primaryElectric, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(Icons.navigation, size: 20, color: AppTheme.primaryElectric),
+                        tooltip: 'Navegar no GPS',
+                        onPressed: () => _showNavigationOptions(context, station),
                       ),
                     ],
                   ),

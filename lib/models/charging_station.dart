@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 enum ChargerSpeedCategory {
   acNormal,      // 7.4 kW - 22 kW (AC)
   dcRapido,      // 50 kW - 90 kW (DC Rápido)
@@ -60,5 +62,26 @@ class ChargingStation {
   // Estimar custo total de carregar X kWh
   double estimateChargingCost(double kwhNeeded) {
     return kwhNeeded * estimatedPricePerKwh;
+  }
+
+  // Calcular distância em KM usando a fórmula de Haversine
+  double distanceTo(double userLat, double userLng) {
+    const p = 0.017453292519943295; // pi / 180
+    final a = 0.5 -
+        math.cos((latitude - userLat) * p) / 2 +
+        math.cos(userLat * p) *
+            math.cos(latitude * p) *
+            (1 - math.cos((longitude - userLng) * p)) /
+            2;
+    return 12742 * math.asin(math.sqrt(a)); // 2 * R (6371 km)
+  }
+
+  // Formatar distância legível (ex: 850 m ou 2.4 km)
+  String formattedDistanceTo(double userLat, double userLng) {
+    final distKm = distanceTo(userLat, userLng);
+    if (distKm < 1.0) {
+      return '${(distKm * 1000).round()} m';
+    }
+    return '${distKm.toStringAsFixed(1)} km';
   }
 }
