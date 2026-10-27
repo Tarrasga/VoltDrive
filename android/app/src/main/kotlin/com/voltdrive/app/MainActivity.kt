@@ -22,6 +22,15 @@ class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.voltdrive.app/assistant"
     private var pendingLocationResult: MethodChannel.Result? = null
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3001)
+            }
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -102,6 +111,21 @@ class MainActivity: FlutterActivity() {
                     } catch (e: Exception) {
                         result.error("FAILED", e.message, null)
                     }
+                }
+                "requestNotificationPermission" -> {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3001)
+                    }
+                    result.success(true)
+                }
+                "requestLocationPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        requestPermissions(
+                            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                            2001
+                        )
+                    }
+                    result.success(true)
                 }
                 "showTestOffer" -> {
                     OverlayManager.showTestOffer(context)

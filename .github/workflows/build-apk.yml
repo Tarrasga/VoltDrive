@@ -32,16 +32,27 @@ jobs:
       - name: Instalar Dependências Flutter
         run: flutter pub get
 
-      - name: Gerar suporte nativo Android limpo e oficial
+      - name: Configurar suporte nativo Android com preservação de código
         run: |
-          rm -rf android
+          # 1. Fazer backup dos ficheiros customizados
+          mkdir -p /tmp/voltdrive_native_backup
+          cp -r android/app/src/main/kotlin /tmp/voltdrive_native_backup/
+          cp android/app/src/main/AndroidManifest.xml /tmp/voltdrive_native_backup/
+          cp -r android/app/src/main/res/xml /tmp/voltdrive_native_backup/
+          cp android/app/src/main/res/values/strings.xml /tmp/voltdrive_native_backup/
+
+          # 2. Gerar gradlew e dependências se necessário
           flutter create . --platforms=android --org=com.voltdrive --project-name=voltdrive
           chmod +x android/gradlew
-          
-          # Definir o nome legível da app como VoltDrive
-          sed -i 's/android:label="voltdrive"/android:label="VoltDrive"/g' android/app/src/main/AndroidManifest.xml
 
-          # Configurar o ícone do Renault Zoe
+          # 3. Restaurar todos os ficheiros nativos customizados (PERMISSÕES, SERVIÇOS, KOTLIN)
+          cp -r /tmp/voltdrive_native_backup/kotlin/* android/app/src/main/kotlin/
+          cp /tmp/voltdrive_native_backup/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          mkdir -p android/app/src/main/res/xml
+          cp -r /tmp/voltdrive_native_backup/xml/* android/app/src/main/res/xml/
+          cp /tmp/voltdrive_native_backup/strings.xml android/app/src/main/res/values/strings.xml
+
+          # 4. Configurar os ícones do Renault Zoe
           mkdir -p android/app/src/main/res/mipmap-mdpi
           mkdir -p android/app/src/main/res/mipmap-hdpi
           mkdir -p android/app/src/main/res/mipmap-xhdpi

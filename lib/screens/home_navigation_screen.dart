@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/assistant_service.dart';
 import '../services/buddy_safety_service.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
@@ -49,6 +50,10 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
   }
 
   Future<void> _checkUpdatesOnLaunch() async {
+    // Pedir permissões essenciais de Notificações e GPS no arranque
+    AssistantService.requestNotificationPermission();
+    AssistantService.requestLocationPermission();
+
     final update = await UpdateService.checkForUpdate();
     if (mounted && update != null && update.hasUpdate) {
       UpdateService.showUpdateDialog(context, update);

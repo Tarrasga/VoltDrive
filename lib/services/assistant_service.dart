@@ -72,6 +72,18 @@ class AssistantService {
     } catch (_) {}
   }
 
+  static Future<void> requestNotificationPermission() async {
+    try {
+      await _channel.invokeMethod('requestNotificationPermission');
+    } catch (_) {}
+  }
+
+  static Future<void> requestLocationPermission() async {
+    try {
+      await _channel.invokeMethod('requestLocationPermission');
+    } catch (_) {}
+  }
+
   static Future<void> showTestOffer() async {
     try {
       await _channel.invokeMethod('showTestOffer');
