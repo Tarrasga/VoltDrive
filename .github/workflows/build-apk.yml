@@ -38,9 +38,9 @@ jobs:
           flutter create . --platforms=android --org=com.voltdrive --project-name=voltdrive
           chmod +x android/gradlew
 
-          # Garantir namespace correto em android/app/build.gradle
-          sed -i 's/namespace = ".*"/namespace = "com.voltdrive.app"/g' android/app/build.gradle || true
-          sed -i 's/applicationId = ".*"/applicationId = "com.voltdrive.app"/g' android/app/build.gradle || true
+          # Aplicar configuração Gradle permanente e chave de assinatura estável (Keystore Oficial)
+          cp -f native_custom/build.gradle android/app/build.gradle
+          cp -f native_custom/voltdrive-release.jks android/app/voltdrive-release.jks
 
           # Criar as pastas de destino para o pacote com.voltdrive.app
           mkdir -p android/app/src/main/kotlin/com/voltdrive/app
@@ -93,23 +93,25 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.27"
-          name: "VoltDrive v1.0.27 (Versao no Menu de Login e Biometria)"
+          tag_name: "v1.0.28"
+          name: "VoltDrive v1.0.28 (Chave de Assinatura Oficial Permanente)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.27 - Versao Visivel no Login & Desbloqueio Biometrico
+            ## ⚡ VoltDrive v1.0.28 - Assinatura Digital Oficial Permanente
 
-            ### 🚀 Novidades desta versão:
-            1. **🏷️ Versão Visível no Ecrã de Login**:
-               - Crachá elegante com a versão instalada (v1.0.27) no topo e rodapé do ecrã de autenticação.
-               - Confirmação visual imediata da versão antes de desbloquear.
-            2. **👆 Desbloqueio por Impressao Digital e Facial**:
-               - Sensor de impressão digital e câmara para reconhecimento facial do Samsung Galaxy.
-            3. **🎯 Metas Semanais e Mensais TVDE**:
-               - Divisão automática pelos dias que faltam para o fim do mês.
-            4. **⚡ Atualização Direta no Telemóvel**:
-               - Atualização 100% automática sem navegador.
+            ### 🚀 Correção Crítica de Atualizações:
+            1. **🔑 Chave de Assinatura Oficial Permanente (VoltDrive Keystore)**:
+               - Corrigido o erro que forçava a desinstalar a aplicação anterior para instalar a nova.
+               - A partir desta versão (v1.0.28), todas as atualizações futuras partilham o mesmo certificado permanente, permitindo atualizar por cima sem desinstalar e sem perder turnos ou dados gravados!
+            2. **🏷️ Versão no Ecrã de Login**:
+               - Crachá v1.0.28 visível no topo e no rodapé do ecrã de desbloqueio.
+            3. **👆 Desbloqueio Biométrico por Impressão Digital e Facial**:
+               - Acesso instantâneo com leitor de impressões digitais ou reconhecimento facial Samsung Knox.
+            4. **🎯 Metas Financeiras TVDE**:
+               - Divisão automática pelos dias restantes até fechar o mês.
+            5. **⚡ Atualização Automática In-App**:
+               - Download e instalação direta sem passar pelo Chrome.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

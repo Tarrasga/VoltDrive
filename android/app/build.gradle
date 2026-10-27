@@ -44,9 +44,18 @@ android {
         versionName flutterVersionName
     }
 
+    signingConfigs {
+        release {
+            storeFile file('voltdrive-release.jks')
+            storePassword 'voltdrive2026'
+            keyAlias 'voltdrive'
+            keyPassword 'voltdrive2026'
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
         }
     }
 }
