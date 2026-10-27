@@ -93,21 +93,23 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.32"
-          name: "VoltDrive v1.0.32 (Calculo de Valor por Distancia x Preco por KM e Viagens Particulares)"
+          tag_name: "v1.0.33"
+          name: "VoltDrive v1.0.33 (Filtro Anti-Falsos Disparos e Correcao do Botao Fechar)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.32 - Cálculo por Distância × €/km & Viagens Particulares
+            ## ⚡ VoltDrive v1.0.33 - Filtro Anti-Falso & Correção do Botão Fechar
 
-            ### 🚀 Novidades na Calculadora:
-            1. **📐 Cálculo do Valor através da Distância e Preço por KM**:
-               - Podes agora calcular automaticamente o valor total da viagem através da distância e do valor desejado por km.
-               - Inclui botões de atalho rápido (0.80, 1.00, 1.20, 1.50, 2.00 €/km) e campo para qualquer taxa personalizada.
-            2. **🚗 Seletor de Viagem Particular (0% Taxas) vs TVDE (25% Taxas)**:
-               - Permite orçamentar e calcular o lucro limpo de viagens particulares fora da app sem descontar comissões de plataforma.
-            3. **🔑 Chave Permanente Oficial**:
-               - Atualização contínua sem desinstalar.
+            ### 🚀 Correções Críticas do Leitor de Ecrã:
+            1. **🛡️ Filtro Anti-Falsos Disparos**:
+               - O leitor agora só dispara quando existe uma oferta real de viagem com botão de aceitar (ignora o ecrã inicial do mapa e os ganhos diários).
+               - Eliminado o disparo repetitivo de falsos km (ex: 12 km).
+            2. **✕ Botão Fechar Corrigido**:
+               - Tocar no botão ✕ fecha a notificação imediatamente sem abrir a aplicação VoltDrive.
+            3. **⏱️ Duração do Cartão no Ecrã**:
+               - Seletor de tempo configurável (8s, 10s, 12s, 15s) no painel do Assistente.
+            4. **🔑 Chave de Assinatura Permanente Oficial**:
+               - Atualização direta sem precisar de desinstalar.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

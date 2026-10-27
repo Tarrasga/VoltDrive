@@ -138,11 +138,13 @@ class MainActivity: FlutterFragmentActivity() {
                 "updateSettings" -> {
                     val platformFee = (call.argument<Double>("platformFee") ?: 25.0) / 100.0
                     val energyCostPerKm = call.argument<Double>("energyCostPerKm") ?: 0.0409
+                    val overlayTimeoutSeconds = call.argument<Int>("overlayTimeoutSeconds") ?: 12
 
                     val prefs = getSharedPreferences("VoltDrivePrefs", Context.MODE_PRIVATE)
                     prefs.edit()
                         .putFloat("platformFeeRate", platformFee.toFloat())
                         .putFloat("energyCostPerKm", energyCostPerKm.toFloat())
+                        .putInt("overlayTimeoutSeconds", overlayTimeoutSeconds)
                         .apply()
 
                     result.success(true)

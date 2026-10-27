@@ -25,6 +25,13 @@ object OverlayManager {
     private val handler = Handler(Looper.getMainLooper())
     private var autoDismissRunnable: Runnable? = null
 
+    var isOverlayVisible: Boolean = false
+    var currentGrossFare: Double = 0.0
+    var currentDistanceKm: Double = 0.0
+    var lastDismissedGrossFare: Double = 0.0
+    var lastDismissedDistanceKm: Double = 0.0
+    var lastDismissedTimestamp: Long = 0L
+
     private fun dpToPx(context: Context, dp: Float): Int {
         return TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
@@ -44,6 +51,7 @@ object OverlayManager {
     private fun removeCurrentViewInternal() {
         autoDismissRunnable?.let { handler.removeCallbacks(it) }
         autoDismissRunnable = null
+        isOverlayVisible = false
 
         if (currentView != null && windowManager != null) {
             try {
@@ -57,6 +65,11 @@ object OverlayManager {
     }
 
     fun hideOverlay() {
+        lastDismissedGrossFare = currentGrossFare
+        lastDismissedDistanceKm = currentDistanceKm
+        lastDismissedTimestamp = System.currentTimeMillis()
+        isOverlayVisible = false
+
         if (Looper.myLooper() == Looper.getMainLooper()) {
             removeCurrentViewInternal()
         } else {
@@ -156,11 +169,22 @@ object OverlayManager {
 
             val closeBtn = TextView(appContext).apply {
                 text = "✕"
-                textSize = 16f
+                textSize = 15f
                 typeface = Typeface.DEFAULT_BOLD
-                setTextColor(Color.parseColor("#94A3B8"))
-                setPadding(dpToPx(appContext, 8f), 0, dpToPx(appContext, 4f), 0)
-                setOnClickListener { hideOverlay() }
+                setTextColor(Color.WHITE)
+                val btnBg = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.parseColor("#334155")) // Slate circle
+                }
+                background = btnBg
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(dpToPx(appContext, 32f), dpToPx(appContext, 32f))
+                isClickable = true
+                isFocusable = false
+                setOnClickListener {
+                    android.util.Log.d("VoltDrive", "Close button clicked - dismissing overlay.")
+                    hideOverlay()
+                }
             }
 
             headerRow.addView(platformChip)
@@ -246,11 +270,12 @@ object OverlayManager {
             }
             card.addView(footerRow)
 
-            // Draggable touch listener with click handling
+            // Draggable touch listener: permite reposicionar a janela sem abrir a app VoltDrive
             var initialX = 0
             var initialY = 0
             var initialTouchX = 0f
             var initialTouchY = 0f
+            var hasMoved = false
 
             card.setOnTouchListener { _, event ->
                 when (event.action) {
@@ -259,31 +284,26 @@ object OverlayManager {
                         initialY = params.y
                         initialTouchX = event.rawX
                         initialTouchY = event.rawY
-                        true
+                        hasMoved = false
+                        false // Permite que os filhos (ex: botão ✕) recebam os cliques normalmente!
                     }
                     MotionEvent.ACTION_MOVE -> {
                         val dx = (event.rawX - initialTouchX).toInt()
                         val dy = (event.rawY - initialTouchY).toInt()
-                        params.x = initialX + dx
-                        params.y = initialY + dy
-                        try {
-                            wm.updateViewLayout(root, params)
-                        } catch (e: Exception) {}
-                        true
+                        if (kotlin.math.abs(dx) > 10 || kotlin.math.abs(dy) > 10) {
+                            hasMoved = true
+                            params.x = initialX + dx
+                            params.y = initialY + dy
+                            try {
+                                wm.updateViewLayout(root, params)
+                            } catch (e: Exception) {}
+                            true
+                        } else {
+                            false
+                        }
                     }
                     MotionEvent.ACTION_UP -> {
-                        val diffX = kotlin.math.abs(event.rawX - initialTouchX)
-                        val diffY = kotlin.math.abs(event.rawY - initialTouchY)
-                        if (diffX < dpToPx(appContext, 10f) && diffY < dpToPx(appContext, 10f)) {
-                            // User tapped card: open VoltDrive
-                            try {
-                                val launchIntent = appContext.packageManager.getLaunchIntentForPackage(appContext.packageName)
-                                launchIntent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                appContext.startActivity(launchIntent)
-                                hideOverlay()
-                            } catch (e: Exception) {}
-                        }
-                        true
+                        hasMoved // Nunca abrir a aplicação VoltDrive ao tocar no cartão!
                     }
                     else -> false
                 }
@@ -301,9 +321,13 @@ object OverlayManager {
                 return@post
             }
 
-            // Auto-dismiss after 15 seconds
+            // Auto-dismiss configurável (padrão 12 segundos)
+            val prefs = appContext.getSharedPreferences("VoltDrivePrefs", Context.MODE_PRIVATE)
+            val timeoutSec = prefs.getInt("overlayTimeoutSeconds", 12)
+            val timeoutMs = (timeoutSec.coerceIn(5, 30)) * 1000L
+
             autoDismissRunnable = Runnable { hideOverlay() }
-            handler.postDelayed(autoDismissRunnable!!, 15000)
+            handler.postDelayed(autoDismissRunnable!!, timeoutMs)
         }
         return true
     }

@@ -41,6 +41,34 @@ class VoltAccessibilityService : AccessibilityService() {
         isServiceRunning = false
     }
 
+    private fun isTripOfferScreen(texts: List<String>): Boolean {
+        val fullText = texts.joinToString(" ").lowercase(Locale.ROOT)
+
+        // 1. Termos obrigatórios que indicam uma oferta de viagem a tocar
+        val offerKeywords = listOf(
+            "aceitar", "accept", "novo pedido", "nova viagem", "nova corrida",
+            "tocar para", "deslize para", "recolha", "pickup", "embarque",
+            "uberx", "comfort", "green", "black", "bolt", "economy",
+            "viagem para", "pedido de"
+        )
+        val hasOfferKeyword = offerKeywords.any { kw -> fullText.contains(kw) }
+
+        // 2. Termos típicos do ecrã inicial / mapa sem pedidos ativos (onde aparecem estatísticas diárias e km da última corrida)
+        val idleKeywords = listOf(
+            "ganhos de hoje", "saldo da conta", "está online", "encontrar viagens",
+            "procurar passageiros", "fazer uma pausa", "definir destino", "oportunidades",
+            "horas online", "conduzir", "ver detalhes da conta", "está offline"
+        )
+        val hasIdleKeyword = idleKeywords.any { kw -> fullText.contains(kw) }
+
+        // Se tem termos de mapa/ganhos e não tem indicação clara de nova oferta ("aceitar", "novo pedido"), ignora!
+        if (hasIdleKeyword && !fullText.contains("aceitar") && !fullText.contains("novo pedido") && !fullText.contains("nova viagem")) {
+            return false
+        }
+
+        return hasOfferKeyword
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         val pkg = event.packageName?.toString() ?: return
@@ -69,6 +97,10 @@ class VoltAccessibilityService : AccessibilityService() {
         }
 
         if (textList.isNotEmpty()) {
+            if (!isTripOfferScreen(textList)) {
+                return
+            }
+
             parseAndProcessOffer(
                 platform = if (isBolt) "BOLT" else "UBER",
                 texts = textList
@@ -169,11 +201,28 @@ class VoltAccessibilityService : AccessibilityService() {
 
         if (totalDistanceKm <= 0.2) return
 
-        // Debounce: don't re-trigger if same offer within 4 seconds
         val now = System.currentTimeMillis()
+
+        // 1. Se este cartão exato já está a ser mostrado no ecrã neste momento, NÃO re-disparar (deixa o temporizador correr)
+        if (OverlayManager.isOverlayVisible &&
+            abs(grossFare - OverlayManager.currentGrossFare) < 0.05 &&
+            abs(totalDistanceKm - OverlayManager.currentDistanceKm) < 0.2
+        ) {
+            return
+        }
+
+        // 2. Se o motorista acabou de fechar este cartão (✕) há menos de 30 segundos, NÃO reaparecer
+        if (abs(grossFare - OverlayManager.lastDismissedGrossFare) < 0.05 &&
+            abs(totalDistanceKm - OverlayManager.lastDismissedDistanceKm) < 0.2 &&
+            now - OverlayManager.lastDismissedTimestamp < 30000L
+        ) {
+            return
+        }
+
+        // 3. Debounce geral de 5 segundos para a mesma oferta
         if (abs(grossFare - lastGrossFare) < 0.05 &&
             abs(totalDistanceKm - lastDistanceKm) < 0.2 &&
-            now - lastOfferTimestamp < 4000L
+            now - lastOfferTimestamp < 5000L
         ) {
             return
         }

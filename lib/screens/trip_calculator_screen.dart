@@ -24,6 +24,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
   bool _usePublicCharging = true;
   bool _isPrivateTrip = false;
   bool _isLoading = true;
+  int _overlayTimeoutSeconds = 12;
 
   bool _overlayGranted = false;
   bool _accessibilityEnabled = false;
@@ -861,6 +862,66 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                     minimumSize: Size.zero,
                   ),
                   child: const Text('Ver Ajuda ➔', style: TextStyle(color: AppTheme.primaryElectric, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+
+          // Configuração de Tempo & Filtro Anti-Falsos
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF131D31),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.accentGreen.withOpacity(0.35)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Duração do Cartão no Ecrã:', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [8, 10, 12, 15].map((sec) {
+                        final isSel = _overlayTimeoutSeconds == sec;
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: InkWell(
+                            onTap: () {
+                              setState(() => _overlayTimeoutSeconds = sec);
+                              AssistantService.syncOverlayTimeout(sec);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isSel ? AppTheme.accentGreen : AppTheme.darkSurface,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${sec}s',
+                                style: TextStyle(
+                                  color: isSel ? Colors.black : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '🛡️ Filtro Anti-Falso: A janela só abre com pedidos reais (Aceitar). O ecrã inicial de ganhos diários é ignorado.',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 10),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  '✕ O botão Fechar fecha o cartão de imediato sem nunca abrir a app.',
+                  style: TextStyle(color: AppTheme.accentGreen, fontSize: 10, fontWeight: FontWeight.w600),
                 ),
               ],
             ),

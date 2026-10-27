@@ -132,11 +132,20 @@ class AssistantService {
     } catch (_) {}
   }
 
-  static Future<void> syncSettings(VehicleProfile profile) async {
+  static Future<void> syncSettings(VehicleProfile profile, {int overlayTimeoutSeconds = 12}) async {
     try {
       await _channel.invokeMethod('updateSettings', {
         'platformFee': profile.platformFeePercent,
         'energyCostPerKm': profile.energyCostPerKmPublic,
+        'overlayTimeoutSeconds': overlayTimeoutSeconds,
+      });
+    } catch (_) {}
+  }
+
+  static Future<void> syncOverlayTimeout(int overlayTimeoutSeconds) async {
+    try {
+      await _channel.invokeMethod('updateSettings', {
+        'overlayTimeoutSeconds': overlayTimeoutSeconds,
       });
     } catch (_) {}
   }
