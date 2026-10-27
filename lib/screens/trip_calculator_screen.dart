@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/trip_calculation.dart';
 import '../models/vehicle_profile.dart';
+import '../services/assistant_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 
@@ -11,7 +12,7 @@ class TripCalculatorScreen extends StatefulWidget {
   State<TripCalculatorScreen> createState() => _TripCalculatorScreenState();
 }
 
-class _TripCalculatorScreenState extends State<TripCalculatorScreen> {
+class _TripCalculatorScreenState extends State<TripCalculatorScreen> with WidgetsBindingObserver {
   final TextEditingController _fareController = TextEditingController(text: '8.50');
   final TextEditingController _pickupDistController = TextEditingController(text: '2.5');
   final TextEditingController _tripDistController = TextEditingController(text: '9.0');
@@ -22,18 +23,55 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> {
   bool _usePublicCharging = true;
   bool _isLoading = true;
 
+  bool _overlayGranted = false;
+  bool _accessibilityEnabled = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadProfile();
+    _checkAssistantPermissions();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _fareController.dispose();
+    _pickupDistController.dispose();
+    _tripDistController.dispose();
+    _durationController.dispose();
+    _tollsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkAssistantPermissions();
+    }
+  }
+
+  Future<void> _checkAssistantPermissions() async {
+    final overlay = await AssistantService.isOverlayGranted();
+    final a11y = await AssistantService.isAccessibilityEnabled();
+    if (mounted) {
+      setState(() {
+        _overlayGranted = overlay;
+        _accessibilityEnabled = a11y;
+      });
+    }
   }
 
   Future<void> _loadProfile() async {
     final prof = await StorageService.loadVehicleProfile();
-    setState(() {
-      _profile = prof;
-      _isLoading = false;
-    });
+    await AssistantService.syncSettings(prof);
+    if (mounted) {
+      setState(() {
+        _profile = prof;
+        _isLoading = false;
+      });
+    }
   }
 
   TripCalculation _calculate() {
@@ -109,6 +147,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> {
 
     final calc = _calculate();
     final verdictColor = _getVerdictColor(calc.verdict);
+    final isAssistantActive = _overlayGranted && _accessibilityEnabled;
 
     return Scaffold(
       appBar: AppBar(
@@ -126,6 +165,11 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // CARTÃO DO ASSISTENTE FLUTUANTE (LEITOR AUTOMÁTICO UBER & BOLT)
+            _buildFloatingAssistantCard(isAssistantActive),
+
+            const SizedBox(height: 16),
+
             // CARTÃO DE RESULTADO E VEREDITO (Topo em Destaque)
             Container(
               padding: const EdgeInsets.all(18),
@@ -271,7 +315,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Dados da Corrida (Uber / Bolt)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Text('Dados da Corrida Manual (ou Simulada)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 14),
 
                     // VALOR BRUTO PROPOSTO NA APP (€)
@@ -391,7 +435,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Retenção da app: ${_profile.platformFeePercent.toStringAsFixed(0)}% | Consumo VE: ${_profile.avgConsumptionKwh100} kWh/100km. Podes personalizar estes valores no separador Definições.',
+                      'Retenção da app: ${_profile.platformFeePercent.toStringAsFixed(0)}% | Consumo Zoe: ${_profile.avgConsumptionKwh100} kWh/100km. Podes personalizar estes valores no separador Definições.',
                       style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                     ),
                   ),
@@ -400,6 +444,179 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingAssistantCard(bool isActive) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isActive
+            ? AppTheme.accentGreen.withOpacity(0.08)
+            : AppTheme.primaryElectric.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isActive ? AppTheme.accentGreen : AppTheme.primaryElectric.withOpacity(0.5),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.picture_in_picture_alt_rounded,
+                    color: isActive ? AppTheme.accentGreen : AppTheme.primaryElectric,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Leitor Automático TVDE',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (isActive ? AppTheme.accentGreen : AppTheme.warningAmber).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isActive ? Icons.check_circle : Icons.warning_amber_rounded,
+                      color: isActive ? AppTheme.accentGreen : AppTheme.warningAmber,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isActive ? 'ATIVO' : 'PENDENTE',
+                      style: TextStyle(
+                        color: isActive ? AppTheme.accentGreen : AppTheme.warningAmber,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Lê as viagens que tocam na Uber Driver e Bolt Driver no ecrã e mostra uma janela flutuante com o lucro limpo por cima da app!',
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 14),
+
+          // Botões de Ativação de Permissões
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await AssistantService.requestOverlayPermission();
+                    _checkAssistantPermissions();
+                  },
+                  icon: Icon(
+                    _overlayGranted ? Icons.check_circle : Icons.layers_outlined,
+                    color: _overlayGranted ? AppTheme.accentGreen : AppTheme.primaryElectric,
+                    size: 16,
+                  ),
+                  label: Text(
+                    _overlayGranted ? 'Janela Ativa' : '1. Ativar Janela',
+                    style: TextStyle(
+                      color: _overlayGranted ? AppTheme.accentGreen : AppTheme.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: _overlayGranted ? AppTheme.accentGreen.withOpacity(0.5) : AppTheme.darkBorder,
+                    ),
+                    backgroundColor: AppTheme.darkSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await AssistantService.requestAccessibilityPermission();
+                    _checkAssistantPermissions();
+                  },
+                  icon: Icon(
+                    _accessibilityEnabled ? Icons.check_circle : Icons.accessibility_new_outlined,
+                    color: _accessibilityEnabled ? AppTheme.accentGreen : AppTheme.primaryElectric,
+                    size: 16,
+                  ),
+                  label: Text(
+                    _accessibilityEnabled ? 'Leitor Ativo' : '2. Ativar Leitor',
+                    style: TextStyle(
+                      color: _accessibilityEnabled ? AppTheme.accentGreen : AppTheme.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: _accessibilityEnabled ? AppTheme.accentGreen.withOpacity(0.5) : AppTheme.darkBorder,
+                    ),
+                    backgroundColor: AppTheme.darkSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // Botão de Teste da Bolha Flutuante
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                if (!_overlayGranted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Ativa primeiro a permissão da Janela Flutuante (botão 1).'),
+                      backgroundColor: AppTheme.warningAmber,
+                    ),
+                  );
+                  await AssistantService.requestOverlayPermission();
+                  return;
+                }
+                await AssistantService.showTestOffer();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('⚡ A simular viagem da Bolt com janela flutuante!'),
+                      backgroundColor: AppTheme.accentGreen,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.play_circle_outline, color: Colors.black, size: 18),
+              label: const Text(
+                'Testar Janela Flutuante Agora',
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accentGreen,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

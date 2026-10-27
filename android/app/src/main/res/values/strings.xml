@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">VoltDrive</string>
+    <string name="accessibility_service_label">VoltDrive - Leitor TVDE</string>
+    <string name="accessibility_service_desc">Lê em tempo real as viagens na Uber e na Bolt para calcular o lucro líquido e €/km no Renault Zoe.</string>
 </resources>

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/vehicle_profile.dart';
+import '../services/assistant_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 
@@ -67,6 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     await StorageService.saveVehicleProfile(profile);
+    await AssistantService.syncSettings(profile);
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
