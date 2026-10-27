@@ -37,7 +37,7 @@ class MainActivity: FlutterFragmentActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "isOverlayGranted" -> {
-                    result.success(OverlayManager.canDrawOverlays(context))
+                    result.success(OverlayManager.canDrawOverlays(applicationContext))
                 }
                 "requestOverlayPermission" -> {
                     var launched = false
@@ -47,7 +47,7 @@ class MainActivity: FlutterFragmentActivity() {
                             data = Uri.parse("package:$packageName")
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
-                        context.startActivity(intent)
+                        startActivity(intent)
                         launched = true
                     } catch (e: Exception) {}
 
@@ -57,7 +57,7 @@ class MainActivity: FlutterFragmentActivity() {
                             val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
-                            context.startActivity(intent)
+                            startActivity(intent)
                             launched = true
                         } catch (e: Exception) {}
                     }
@@ -69,7 +69,7 @@ class MainActivity: FlutterFragmentActivity() {
                                 data = Uri.fromParts("package", packageName, null)
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
-                            context.startActivity(intent)
+                            startActivity(intent)
                             launched = true
                         } catch (e: Exception) {}
                     }
@@ -85,7 +85,7 @@ class MainActivity: FlutterFragmentActivity() {
                         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
-                        context.startActivity(intent)
+                        startActivity(intent)
                         launched = true
                     } catch (e: Exception) {}
 
@@ -94,7 +94,7 @@ class MainActivity: FlutterFragmentActivity() {
                             val intent = Intent(Settings.ACTION_SETTINGS).apply {
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
-                            context.startActivity(intent)
+                            startActivity(intent)
                             launched = true
                         } catch (e: Exception) {}
                     }
@@ -106,7 +106,7 @@ class MainActivity: FlutterFragmentActivity() {
                             data = Uri.fromParts("package", packageName, null)
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
-                        context.startActivity(intent)
+                        startActivity(intent)
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("FAILED", e.message, null)
@@ -208,7 +208,7 @@ class MainActivity: FlutterFragmentActivity() {
                 }
                 "getCacheDir" -> {
                     try {
-                        result.success(context.cacheDir.absolutePath)
+                        result.success(applicationContext.cacheDir.absolutePath)
                     } catch (e: Exception) {
                         result.error("CACHE_DIR_FAILED", e.message, null)
                     }
