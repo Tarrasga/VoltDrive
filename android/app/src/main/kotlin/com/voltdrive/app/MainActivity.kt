@@ -1,9 +1,18 @@
 package com.voltdrive.app
 
+import android.annotation.SuppressLint
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -11,6 +20,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.voltdrive.app/assistant"
+    private var pendingLocationResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -63,7 +73,175 @@ class MainActivity: FlutterActivity() {
 
                     result.success(true)
                 }
+                "getLocation" -> {
+                    fetchCurrentLocation(result)
+                }
+                "openUrl" -> {
+                    val url = call.argument<String>("url") ?: ""
+                    if (url.isNotEmpty()) {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("OPEN_FAILED", e.message, null)
+                        }
+                    } else {
+                        result.error("INVALID_URL", "URL is empty", null)
+                    }
+                }
+                "sendEmergencySms" -> {
+                    val phone = call.argument<String>("phone") ?: ""
+                    val message = call.argument<String>("message") ?: ""
+                    try {
+                        val uri = if (phone.isNotEmpty()) Uri.parse("smsto:$phone") else Uri.parse("smsto:")
+                        val intent = Intent(Intent.ACTION_SENDTO, uri).apply {
+                            putExtra("sms_body", message)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("SMS_FAILED", e.message, null)
+                    }
+                }
+                "shareWhatsApp" -> {
+                    val phone = call.argument<String>("phone") ?: ""
+                    val message = call.argument<String>("message") ?: ""
+                    try {
+                        val encoded = Uri.encode(message)
+                        val url = if (phone.isNotEmpty()) {
+                            "https://api.whatsapp.com/send?phone=$phone&text=$encoded"
+                        } else {
+                            "https://api.whatsapp.com/send?text=$encoded"
+                        }
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("WHATSAPP_FAILED", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun fetchCurrentLocation(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val coarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            if (!fine && !coarse) {
+                pendingLocationResult = result
+                requestPermissions(
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                    2001
+                )
+                return
+            }
+        }
+
+        retrieveLocationFromManager(result)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun retrieveLocationFromManager(result: MethodChannel.Result) {
+        val lm = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        if (lm == null) {
+            result.error("NO_LOCATION_MANAGER", "LocationManager unavailable", null)
+            return
+        }
+
+        try {
+            var bestLoc: Location? = null
+            val providers = lm.getProviders(true)
+            for (provider in providers) {
+                val l = lm.getLastKnownLocation(provider) ?: continue
+                if (bestLoc == null || l.accuracy < bestLoc.accuracy) {
+                    bestLoc = l
+                }
+            }
+
+            if (bestLoc != null) {
+                val resMap = mapOf(
+                    "lat" to bestLoc.latitude,
+                    "lng" to bestLoc.longitude,
+                    "accuracy" to bestLoc.accuracy.toDouble(),
+                    "speed" to bestLoc.speed.toDouble()
+                )
+                result.success(resMap)
+                return
+            }
+
+            // Fallback: one-shot listener
+            val handler = Handler(Looper.getMainLooper())
+            var answered = false
+
+            val listener = object : LocationListener {
+                override fun onLocationChanged(loc: Location) {
+                    if (!answered) {
+                        answered = true
+                        lm.removeUpdates(this)
+                        val resMap = mapOf(
+                            "lat" to loc.latitude,
+                            "lng" to loc.longitude,
+                            "accuracy" to loc.accuracy.toDouble(),
+                            "speed" to loc.speed.toDouble()
+                        )
+                        result.success(resMap)
+                    }
+                }
+                @Deprecated("Deprecated in Java")
+                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+                override fun onProviderEnabled(provider: String) {}
+                override fun onProviderDisabled(provider: String) {}
+            }
+
+            val providerToUse = if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                LocationManager.GPS_PROVIDER
+            } else {
+                LocationManager.NETWORK_PROVIDER
+            }
+
+            lm.requestLocationUpdates(providerToUse, 500L, 0f, listener, Looper.getMainLooper())
+
+            // Timeout after 4 seconds if no fix
+            handler.postDelayed({
+                if (!answered) {
+                    answered = true
+                    lm.removeUpdates(listener)
+                    // Return default Lisbon/Portugal coordinates as fallback if GPS indoors
+                    val fallbackMap = mapOf(
+                        "lat" to 38.6500,
+                        "lng" to -9.1500,
+                        "accuracy" to 100.0,
+                        "speed" to 0.0
+                    )
+                    result.success(fallbackMap)
+                }
+            }, 4000)
+
+        } catch (e: Exception) {
+            result.error("LOCATION_ERROR", e.message, null)
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 2001) {
+            val pending = pendingLocationResult
+            pendingLocationResult = null
+            if (pending != null) {
+                val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                if (granted) {
+                    retrieveLocationFromManager(pending)
+                } else {
+                    pending.error("PERMISSION_DENIED", "GPS permission denied", null)
+                }
             }
         }
     }

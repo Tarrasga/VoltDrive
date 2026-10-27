@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../models/vehicle_profile.dart';
 import '../services/assistant_service.dart';
 import '../services/storage_service.dart';
+import '../services/update_service.dart';
 import '../theme/app_theme.dart';
+import 'safety_buddies_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -296,6 +298,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: _save,
               icon: const Icon(Icons.check_circle_outline),
               label: const Text('Guardar Definições'),
+            ),
+
+            const SizedBox(height: 18),
+
+            // REDE DE SEGURANÇA E COLEGAS
+            Card(
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerRed.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.shield_outlined, color: AppTheme.dangerRed),
+                ),
+                title: const Text('Rede de Colegas & Botão SOS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Partilha de localização em tempo real e alerta de emergência', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textMuted),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SafetyBuddiesScreen()));
+                },
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // VERIFICAÇÃO DE ATUALIZAÇÕES
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.system_update_rounded, color: AppTheme.primaryElectric, size: 20),
+                            SizedBox(width: 8),
+                            Text('Atualizações da Aplicação', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.darkSurface,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.darkBorder),
+                          ),
+                          child: Text('v${UpdateService.currentVersion}', style: const TextStyle(color: AppTheme.primaryElectric, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'O VoltDrive verifica automaticamente no GitHub se existe uma nova versão com novas funções.',
+                      style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('A verificar atualizações no GitHub...')),
+                          );
+                          final update = await UpdateService.checkForUpdate();
+                          if (context.mounted && update != null) {
+                            UpdateService.showUpdateDialog(context, update, manualCheck: true);
+                          } else if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Não foi possível verificar no momento.')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.refresh, size: 16, color: AppTheme.primaryElectric),
+                        label: const Text('Procurar Atualizações Agora', style: TextStyle(color: AppTheme.primaryElectric, fontSize: 12)),
+                        style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.darkBorder)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
 
             const SizedBox(height: 24),
