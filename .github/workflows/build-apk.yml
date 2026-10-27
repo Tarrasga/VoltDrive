@@ -93,23 +93,21 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.29"
-          name: "VoltDrive v1.0.29 (Registo Inicial Obrigatorio e Associacao de Conta)"
+          tag_name: "v1.0.30"
+          name: "VoltDrive v1.0.30 (Ativacao do Leitor de Ecrã e Janela Flutuante Uber & Bolt)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.29 - Registo de Conta no 1º Acesso & Keystore Oficial
+            ## ⚡ VoltDrive v1.0.30 - Janela Flutuante & Leitor TVDE Ativo
 
-            ### 🚀 Novidades desta versão:
-            1. **👤 Configuração de Conta no 1º Acesso**:
-               - Ao instalar a aplicação pela primeira vez, o VoltDrive apresenta o ecrã inicial de configuração de conta (Email e Palavra-passe).
-               - Todos os dados, turnos, lucros e perfil do Renault Zoe ficam permanentemente associados à conta do motorista.
-            2. **🔑 Chave de Assinatura Oficial Permanente (VoltDrive Keystore)**:
-               - Permite atualizar o VoltDrive sem nunca mais precisar de desinstalar a aplicação.
-            3. **👆 Desbloqueio Biométrico (Digital e Facial)**:
-               - Desbloqueio em 1 segundo com sensor Samsung Galaxy ou câmara frontal.
-            4. **🎯 Metas Financeiras TVDE**:
-               - Divisão automática pelos dias que faltam para o fim do mês.
+            ### 🚀 Correção Crítica da Janela Flutuante:
+            1. **👁️ Ativação do Serviço de Acessibilidade no AndroidManifest**:
+               - Registado oficialmente o serviço nativo `VoltAccessibilityService` para ler viagens em tempo real da Uber Driver e Bolt Driver.
+            2. **🪟 Cartão Flutuante TVDE**:
+               - Painel com o estado das duas permissões essenciais ("Aparecer em cima" e "Leitor TVDE").
+               - Botão de teste direto no ecrã e botão de ajuda para contornar a "Definição restrita" do Samsung One UI / Android 14.
+            3. **🔑 Chave de Assinatura Permanente Oficial**:
+               - Atualizações diretas in-app ou por APK sem desinstalar.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

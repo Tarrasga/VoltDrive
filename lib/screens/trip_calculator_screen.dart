@@ -470,13 +470,13 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
               Row(
                 children: [
                   Icon(
-                    Icons.picture_in_picture_alt_rounded,
-                    color: _overlayGranted ? AppTheme.accentGreen : AppTheme.primaryElectric,
+                    Icons.bolt,
+                    color: isActive ? AppTheme.accentGreen : AppTheme.primaryElectric,
                     size: 24,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   const Text(
-                    'Janela Flutuante Zoe',
+                    'Assistente TVDE Zoe',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ],
@@ -484,22 +484,22 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (_overlayGranted ? AppTheme.accentGreen : AppTheme.warningAmber).withOpacity(0.2),
+                  color: (isActive ? AppTheme.accentGreen : AppTheme.warningAmber).withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      _overlayGranted ? Icons.check_circle : Icons.warning_amber_rounded,
-                      color: _overlayGranted ? AppTheme.accentGreen : AppTheme.warningAmber,
+                      isActive ? Icons.check_circle : Icons.warning_amber_rounded,
+                      color: isActive ? AppTheme.accentGreen : AppTheme.warningAmber,
                       size: 14,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      _overlayGranted ? 'ATIVO' : 'PENDENTE',
+                      isActive ? '100% PRONTO' : 'CONFIGURAR',
                       style: TextStyle(
-                        color: _overlayGranted ? AppTheme.accentGreen : AppTheme.warningAmber,
+                        color: isActive ? AppTheme.accentGreen : AppTheme.warningAmber,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -511,81 +511,196 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
           ),
           const SizedBox(height: 8),
           const Text(
-            'Aparece por cima da Bolt Driver e Uber Driver para veres o lucro líquido limpo e €/km do Renault Zoe em tempo real!',
+            'Lê as ofertas que caem na Uber Driver e Bolt Driver e desenha no topo do ecrã o lucro líquido limpo e €/km para o Renault Zoe.',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 14),
 
-          // Botão de Ativação da Janela Flutuante ("Aparecer em cima")
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('A abrir menu do Android: ativa "Aparecer em cima" para o VoltDrive.'),
-                    duration: Duration(seconds: 3),
+          // Passo 1: Janela Flutuante ("Aparecer em cima")
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.darkSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _overlayGranted ? AppTheme.accentGreen.withOpacity(0.4) : AppTheme.darkBorder,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _overlayGranted ? Icons.check_circle : Icons.layers_outlined,
+                  color: _overlayGranted ? AppTheme.accentGreen : AppTheme.primaryElectric,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '1. Janela Flutuante',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      Text(
+                        _overlayGranted ? 'Permissão concedida' : 'Obrigatório: "Aparecer em cima"',
+                        style: TextStyle(
+                          color: _overlayGranted ? AppTheme.accentGreen : AppTheme.textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
-                );
-                await AssistantService.requestOverlayPermission();
-                _checkAssistantPermissions();
-              },
-              icon: Icon(
-                _overlayGranted ? Icons.check_circle : Icons.layers_outlined,
-                color: _overlayGranted ? AppTheme.accentGreen : AppTheme.primaryElectric,
-                size: 18,
-              ),
-              label: Text(
-                _overlayGranted ? 'Janela Flutuante Autorizada ⚡' : 'Ativar Janela Flutuante ("Aparecer em cima")',
-                style: TextStyle(
-                  color: _overlayGranted ? AppTheme.accentGreen : AppTheme.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
                 ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(
-                  color: _overlayGranted ? AppTheme.accentGreen.withOpacity(0.6) : AppTheme.darkBorder,
-                ),
-                backgroundColor: AppTheme.darkSurface,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
+                if (!_overlayGranted)
+                  ElevatedButton(
+                    onPressed: () async {
+                      await AssistantService.requestOverlayPermission();
+                      _checkAssistantPermissions();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryElectric,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      minimumSize: Size.zero,
+                    ),
+                    child: const Text('Ativar', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                  )
+                else
+                  const Icon(Icons.done_all, color: AppTheme.accentGreen, size: 20),
+              ],
             ),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
 
-          // Botão de Teste da Bolha Flutuante
+          // Passo 2: Leitor de Ecrã (Acessibilidade)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.darkSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _accessibilityEnabled ? AppTheme.accentGreen.withOpacity(0.4) : AppTheme.darkBorder,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _accessibilityEnabled ? Icons.check_circle : Icons.visibility_outlined,
+                  color: _accessibilityEnabled ? AppTheme.accentGreen : AppTheme.warningAmber,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '2. Leitor Uber & Bolt',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      Text(
+                        _accessibilityEnabled ? 'Leitor ativo e a escutar' : 'Acessibilidade > "VoltDrive"',
+                        style: TextStyle(
+                          color: _accessibilityEnabled ? AppTheme.accentGreen : AppTheme.textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!_accessibilityEnabled)
+                  ElevatedButton(
+                    onPressed: () async {
+                      await AssistantService.requestAccessibilityPermission();
+                      _checkAssistantPermissions();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.warningAmber,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      minimumSize: Size.zero,
+                    ),
+                    child: const Text('Ligar', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                  )
+                else
+                  const Icon(Icons.done_all, color: AppTheme.accentGreen, size: 20),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Aviso Samsung Galaxy / Definições Restritas
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.darkCard,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.darkBorder),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: AppTheme.primaryElectric, size: 18),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'No Samsung diz "Definição restrita"?',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _showPermissionHelpDialog,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                  ),
+                  child: const Text('Ver Ajuda ➔', style: TextStyle(color: AppTheme.primaryElectric, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Botão de Teste da Janela Flutuante
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () async {
                 final granted = await AssistantService.isOverlayGranted();
-                if (granted) {
-                  final shown = await AssistantService.showTestOffer();
-                  if (shown && mounted) {
+                if (!granted) {
+                  if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('⚡ Janela flutuante apresentada no topo do ecrã!'),
-                        backgroundColor: AppTheme.accentGreen,
+                        content: Text('⚠️ Primeiro autoriza a Janela Flutuante ("Aparecer em cima") no Passo 1.'),
+                        backgroundColor: AppTheme.warningAmber,
                       ),
                     );
-                    return;
                   }
+                  await AssistantService.requestOverlayPermission();
+                  return;
                 }
-                if (mounted) {
+
+                final shown = await AssistantService.showTestOffer();
+                if (shown && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('⚡ Janela flutuante disparada no topo do ecrã!'),
+                      backgroundColor: AppTheme.accentGreen,
+                    ),
+                  );
+                } else if (mounted) {
                   _showSimulatedFloatingOfferDialog();
                 }
               },
               icon: const Icon(Icons.play_circle_outline, color: Colors.black, size: 18),
               label: const Text(
-                'Testar Janela Flutuante Agora',
+                '⚡ Testar Janela Flutuante no Ecrã Agora',
                 style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.accentGreen,
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),

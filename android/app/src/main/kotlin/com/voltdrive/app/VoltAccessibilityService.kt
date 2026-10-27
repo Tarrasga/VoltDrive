@@ -50,10 +50,23 @@ class VoltAccessibilityService : AccessibilityService() {
 
         if (!isUber && !isBolt) return
 
-        val rootNode = rootInActiveWindow ?: event.source ?: return
-
         val textList = mutableListOf<String>()
-        extractNodeTexts(rootNode, textList)
+        val rootNode = rootInActiveWindow ?: event.source
+        if (rootNode != null) {
+            extractNodeTexts(rootNode, textList)
+        }
+
+        // Também verificar janelas interativas (sub-janelas ou modais)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            try {
+                for (window in windows) {
+                    val wRoot = window.root
+                    if (wRoot != null && wRoot != rootNode) {
+                        extractNodeTexts(wRoot, textList)
+                    }
+                }
+            } catch (e: Exception) {}
+        }
 
         if (textList.isNotEmpty()) {
             parseAndProcessOffer(
@@ -64,7 +77,7 @@ class VoltAccessibilityService : AccessibilityService() {
     }
 
     private fun extractNodeTexts(node: AccessibilityNodeInfo?, list: MutableList<String>) {
-        if (node == null || !node.isVisibleToUser) return
+        if (node == null) return
 
         node.text?.toString()?.trim()?.let {
             if (it.isNotEmpty()) list.add(it)
@@ -82,8 +95,10 @@ class VoltAccessibilityService : AccessibilityService() {
         val foundPrices = mutableListOf<Double>()
         val foundDistances = mutableListOf<Double>()
 
-        for (text in texts) {
-            // Find Prices: 8.50 €, 8,50€, €8.50, 8.50 EUR, etc.
+        for (i in texts.indices) {
+            val text = texts[i]
+
+            // 1. Procurar Preços diretamente (ex: 8.50 €, 8,50€, €8.50, 8.50 EUR)
             val priceMatcher = pricePattern.matcher(text)
             while (priceMatcher.find()) {
                 val group1 = priceMatcher.group(1)
@@ -94,7 +109,20 @@ class VoltAccessibilityService : AccessibilityService() {
                 }
             }
 
-            // Find Distances in kilometers (e.g. 9.2 km)
+            // 2. Procurar Preços quando o símbolo € está no nó anterior ou seguinte
+            val prevIsCurrency = i > 0 && (texts[i - 1].trim() == "€" || texts[i - 1].trim().equals("EUR", ignoreCase = true))
+            val nextIsCurrency = i < texts.size - 1 && (texts[i + 1].trim() == "€" || texts[i + 1].trim().equals("EUR", ignoreCase = true))
+            if (prevIsCurrency || nextIsCurrency) {
+                val numMatcher = Pattern.compile("([0-9]+[.,][0-9]{2})").matcher(text)
+                while (numMatcher.find()) {
+                    val rawVal = numMatcher.group(1)?.replace(',', '.') ?: continue
+                    rawVal.toDoubleOrNull()?.let { p ->
+                        if (p in 1.5..250.0 && !foundPrices.contains(p)) foundPrices.add(p)
+                    }
+                }
+            }
+
+            // 3. Procurar Distâncias em km (ex: 9.2 km)
             val distMatcher = distKmPattern.matcher(text)
             while (distMatcher.find()) {
                 val rawDist = distMatcher.group(1)?.replace(',', '.') ?: continue
@@ -103,13 +131,25 @@ class VoltAccessibilityService : AccessibilityService() {
                 }
             }
 
-            // Find Distances in meters (e.g. 800 m = 0.8 km)
+            // 4. Procurar Distâncias em metros (ex: 800 m = 0.8 km)
             val meterMatcher = distMeterPattern.matcher(text)
             while (meterMatcher.find()) {
                 val rawMeters = meterMatcher.group(1) ?: continue
                 rawMeters.toDoubleOrNull()?.let { m ->
                     val km = m / 1000.0
                     if (km in 0.05..5.0 && !foundDistances.contains(km)) foundDistances.add(km)
+                }
+            }
+
+            // 5. Procurar Distância quando "km" está no nó seguinte
+            val nextIsKm = i < texts.size - 1 && texts[i + 1].trim().equals("km", ignoreCase = true)
+            if (nextIsKm) {
+                val numMatcher = Pattern.compile("([0-9]+[.,]?[0-9]*)").matcher(text)
+                while (numMatcher.find()) {
+                    val rawDist = numMatcher.group(1)?.replace(',', '.') ?: continue
+                    rawDist.toDoubleOrNull()?.let { d ->
+                        if (d in 0.1..200.0 && !foundDistances.contains(d)) foundDistances.add(d)
+                    }
                 }
             }
         }
