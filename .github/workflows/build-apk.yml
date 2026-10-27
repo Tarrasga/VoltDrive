@@ -32,6 +32,9 @@ jobs:
       - name: Instalar Dependências Flutter
         run: flutter pub get
 
+      - name: Análise de Código Dart
+        run: flutter analyze
+
       - name: Gerar suporte nativo Android limpo e oficial
         run: |
           rm -rf android
@@ -54,17 +57,20 @@ jobs:
           cp assets/icon/app_icon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
       - name: Compilar APK Android (Release)
+        id: build_apk
         run: |
           flutter build apk --release --no-tree-shake-icons 2>&1 | tee build_log.txt
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/VoltDrive.apk
           ls -la build/app/outputs/flutter-apk/
 
-      - name: Guardar Log em caso de Erro
+      - name: Publicar Log de Erro no Git se falhar
         if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Build-Logs
-          path: build_log.txt
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add build_log.txt || true
+          git commit -m "build-log: capture compilation error log" || true
+          git push origin main || true
 
       - name: Guardar VoltDrive.apk como Artifact
         uses: actions/upload-artifact@v4
