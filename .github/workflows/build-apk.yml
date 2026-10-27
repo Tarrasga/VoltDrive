@@ -32,10 +32,15 @@ jobs:
       - name: Instalar Dependências Flutter
         run: flutter pub get
 
-      - name: Gerar suporte nativo Android e Gradle Wrapper
+      - name: Gerar suporte nativo Android limpo e oficial
         run: |
-          flutter create . --platforms=android --org=com.voltdrive
+          rm -rf android
+          flutter create . --platforms=android --org=com.voltdrive --project-name=voltdrive
           chmod +x android/gradlew
+          
+          # Definir o nome legível da app como VoltDrive
+          sed -i 's/android:label="voltdrive"/android:label="VoltDrive"/g' android/app/src/main/AndroidManifest.xml
+
           # Configurar o ícone do Renault Zoe
           mkdir -p android/app/src/main/res/mipmap-mdpi
           mkdir -p android/app/src/main/res/mipmap-hdpi
@@ -50,9 +55,16 @@ jobs:
 
       - name: Compilar APK Android (Release)
         run: |
-          flutter build apk --release --no-tree-shake-icons
+          flutter build apk --release --no-tree-shake-icons 2>&1 | tee build_log.txt
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/VoltDrive.apk
           ls -la build/app/outputs/flutter-apk/
+
+      - name: Guardar Log em caso de Erro
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Build-Logs
+          path: build_log.txt
 
       - name: Guardar VoltDrive.apk como Artifact
         uses: actions/upload-artifact@v4
