@@ -38,6 +38,8 @@ class DrivingShiftSession {
   final DateTime date;
   DateTime? shiftStartTime;
   DateTime? shiftEndTime;
+  double? startKm; // Odómetro inicial
+  double? endKm;   // Odómetro final
   int totalDrivingSeconds;
   int currentContinuousDrivingSeconds;
   int totalBreakSeconds;
@@ -49,12 +51,17 @@ class DrivingShiftSession {
     required this.date,
     this.shiftStartTime,
     this.shiftEndTime,
+    this.startKm,
+    this.endKm,
     this.totalDrivingSeconds = 0,
     this.currentContinuousDrivingSeconds = 0,
     this.totalBreakSeconds = 0,
     this.currentState = DrivingState.parado,
     List<DrivingSessionLog>? logs,
   }) : logs = logs ?? [];
+
+  // Km totais rodados no turno
+  double get totalKmDriven => (endKm != null && startKm != null && endKm! > startKm!) ? (endKm! - startKm!) : 0.0;
 
   // Tempo de condução restante hoje (até ao limite de 10h da Lei TVDE)
   int get remainingDailyDrivingSeconds => (maxDailyDrivingSeconds - totalDrivingSeconds).clamp(0, maxDailyDrivingSeconds);
@@ -91,6 +98,8 @@ class DrivingShiftSession {
     'date': date.toIso8601String(),
     'shiftStartTime': shiftStartTime?.toIso8601String(),
     'shiftEndTime': shiftEndTime?.toIso8601String(),
+    'startKm': startKm,
+    'endKm': endKm,
     'totalDrivingSeconds': totalDrivingSeconds,
     'currentContinuousDrivingSeconds': currentContinuousDrivingSeconds,
     'totalBreakSeconds': totalBreakSeconds,
@@ -99,14 +108,16 @@ class DrivingShiftSession {
   };
 
   factory DrivingShiftSession.fromJson(Map<String, dynamic> json) => DrivingShiftSession(
-    id: json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-    date: DateTime.tryParse(json['date'] ?? '') ?? DateTime.now(),
-    shiftStartTime: json['shiftStartTime'] != null ? DateTime.tryParse(json['shiftStartTime']) : null,
-    shiftEndTime: json['shiftEndTime'] != null ? DateTime.tryParse(json['shiftEndTime']) : null,
-    totalDrivingSeconds: json['totalDrivingSeconds'] ?? 0,
-    currentContinuousDrivingSeconds: json['currentContinuousDrivingSeconds'] ?? 0,
-    totalBreakSeconds: json['totalBreakSeconds'] ?? 0,
-    currentState: DrivingState.values[json['currentState'] ?? 0],
-    logs: (json['logs'] as List<dynamic>?)?.map((l) => DrivingSessionLog.fromJson(l)).toList(),
+    id: json['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
+    date: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
+    shiftStartTime: json['shiftStartTime'] != null ? DateTime.tryParse(json['shiftStartTime'] as String) : null,
+    shiftEndTime: json['shiftEndTime'] != null ? DateTime.tryParse(json['shiftEndTime'] as String) : null,
+    startKm: (json['startKm'] as num?)?.toDouble(),
+    endKm: (json['endKm'] as num?)?.toDouble(),
+    totalDrivingSeconds: json['totalDrivingSeconds'] as int? ?? 0,
+    currentContinuousDrivingSeconds: json['currentContinuousDrivingSeconds'] as int? ?? 0,
+    totalBreakSeconds: json['totalBreakSeconds'] as int? ?? 0,
+    currentState: DrivingState.values[json['currentState'] as int? ?? 0],
+    logs: (json['logs'] as List<dynamic>?)?.map((l) => DrivingSessionLog.fromJson(l as Map<String, dynamic>)).toList(),
   );
 }

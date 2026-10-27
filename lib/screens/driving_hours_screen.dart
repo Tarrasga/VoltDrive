@@ -63,16 +63,58 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
     });
   }
 
-  void _startDriving() {
+  Future<void> _startDriving() async {
+    final kmController = TextEditingController(text: _session.startKm != null ? _session.startKm!.toStringAsFixed(0) : '');
+    final inputKm = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkSurface,
+        title: const Text('Iniciar Turno TVDE'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Registo obrigatório: Introduz o odómetro do carro no início do turno (Km Inicial):', style: TextStyle(fontSize: 13, color: AppTheme.textMuted)),
+            const SizedBox(height: 14),
+            TextField(
+              controller: kmController,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Km Inicial (Odómetro)',
+                prefixIcon: Icon(Icons.pin_drop_outlined, color: AppTheme.primaryElectric),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Mais Tarde', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = double.tryParse(kmController.text.replaceAll(',', '.'));
+              Navigator.pop(ctx, val);
+            },
+            child: const Text('Confirmar & Iniciar'),
+          ),
+        ],
+      ),
+    );
+
     final now = DateTime.now();
     setState(() {
       _session.shiftStartTime ??= now;
+      if (inputKm != null && inputKm > 0) {
+        _session.startKm = inputKm;
+      }
       _session.currentState = DrivingState.conduzindo;
       _session.logs.insert(
         0,
         DrivingSessionLog(
           timestamp: now,
-          description: 'Início de Condução',
+          description: _session.startKm != null ? 'Início de Condução (Km: ${_session.startKm!.toStringAsFixed(0)})' : 'Início de Condução',
           state: DrivingState.conduzindo,
         ),
       );
@@ -139,13 +181,31 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
   }
 
   Future<void> _endShift() async {
+    final endKmController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.darkSurface,
         title: const Text('Encerrar Turno de Condução?'),
-        content: Text(
-          'Total conduzido hoje: ${_session.formatHoursAndMins(_session.totalDrivingSeconds)}.\n\nO teu descanso diário obrigatório (11 horas) começará a contar.',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Total conduzido hoje: ${_session.formatHoursAndMins(_session.totalDrivingSeconds)}.\nDescanso obrigatório de 11h começará agora.',
+              style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: endKmController,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Km Final do Odómetro',
+                prefixIcon: Icon(Icons.flag_outlined, color: AppTheme.accentGreen),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -164,14 +224,20 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
     if (confirmed == true) {
       _ticker?.cancel();
       final now = DateTime.now();
+      final endKm = double.tryParse(endKmController.text.replaceAll(',', '.'));
       setState(() {
         _session.shiftEndTime = now;
+        if (endKm != null && endKm > 0) {
+          _session.endKm = endKm;
+        }
         _session.currentState = DrivingState.parado;
+        
+        final kmDrivenStr = _session.totalKmDriven > 0 ? ' (Km Feitos: ${_session.totalKmDriven.toStringAsFixed(1)} km)' : '';
         _session.logs.insert(
           0,
           DrivingSessionLog(
             timestamp: now,
-            description: 'Turno Encerrado',
+            description: 'Turno Encerrado$kmDrivenStr',
             state: DrivingState.parado,
           ),
         );
@@ -180,9 +246,10 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
       await StorageService.saveCurrentDrivingSession(_session);
       if (!mounted) return;
 
+      final kmMsg = _session.totalKmDriven > 0 ? ' | Km: ${_session.totalKmDriven.toStringAsFixed(1)} km' : '';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Turno arquivado com sucesso! Descanso legal iniciado.'),
+        SnackBar(
+          content: Text('Turno arquivado com sucesso!$kmMsg'),
           backgroundColor: AppTheme.accentGreen,
         ),
       );
@@ -332,6 +399,17 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
                       minHeight: 10,
                     ),
                   ),
+                  if (_session.startKm != null) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Odómetro Inicial: ${_session.startKm!.toStringAsFixed(0)} km', style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                        if (_session.endKm != null)
+                          Text('Final: ${_session.endKm!.toStringAsFixed(0)} km (+${_session.totalKmDriven.toStringAsFixed(1)} km)', style: const TextStyle(fontSize: 12, color: AppTheme.accentGreen, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

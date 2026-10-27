@@ -15,6 +15,8 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
   final TextEditingController _uberController = TextEditingController(text: '95.00');
   final TextEditingController _boltController = TextEditingController(text: '80.00');
   final TextEditingController _tipsController = TextEditingController(text: '8.50');
+  final TextEditingController _startKmController = TextEditingController(text: '124500');
+  final TextEditingController _endKmController = TextEditingController(text: '124710');
   final TextEditingController _kmController = TextEditingController(text: '210.0');
   final TextEditingController _hoursController = TextEditingController(text: '8.5');
   final TextEditingController _chargingCostController = TextEditingController(text: '12.50');
@@ -40,11 +42,22 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
     });
   }
 
+  void _updateCalculatedKm() {
+    final start = double.tryParse(_startKmController.text.replaceAll(',', '.')) ?? 0.0;
+    final end = double.tryParse(_endKmController.text.replaceAll(',', '.')) ?? 0.0;
+    if (end > start && start > 0) {
+      _kmController.text = (end - start).toStringAsFixed(1);
+    }
+  }
+
   DailyShift _calculateCurrentShift() {
     final uber = double.tryParse(_uberController.text.replaceAll(',', '.')) ?? 0.0;
     final bolt = double.tryParse(_boltController.text.replaceAll(',', '.')) ?? 0.0;
     final tips = double.tryParse(_tipsController.text.replaceAll(',', '.')) ?? 0.0;
-    final km = double.tryParse(_kmController.text.replaceAll(',', '.')) ?? 0.0;
+    final startKm = double.tryParse(_startKmController.text.replaceAll(',', '.')) ?? 0.0;
+    final endKm = double.tryParse(_endKmController.text.replaceAll(',', '.')) ?? 0.0;
+    final manualKm = double.tryParse(_kmController.text.replaceAll(',', '.')) ?? 0.0;
+    final km = (endKm > startKm && startKm > 0) ? (endKm - startKm) : manualKm;
     final hours = double.tryParse(_hoursController.text.replaceAll(',', '.')) ?? 8.0;
     final charging = double.tryParse(_chargingCostController.text.replaceAll(',', '.')) ?? 0.0;
     final kwh = double.tryParse(_chargingKwhController.text.replaceAll(',', '.')) ?? 0.0;
@@ -53,6 +66,23 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
 
     return DailyShift(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
+      date: DateTime.now(),
+      uberGross: uber,
+      boltGross: bolt,
+      tips: tips,
+      startKm: startKm,
+      endKm: endKm,
+      totalKm: km,
+      hoursWorked: hours,
+      chargingCost: charging,
+      chargingKwh: kwh,
+      tollsCost: tolls,
+      otherExpenses: others,
+      notes: _notesController.text,
+      platformFeePercent: _profile.platformFeePercent,
+      fleetCommissionPercent: _profile.fleetCommissionPercent,
+    );
+  }
       date: DateTime.now(),
       uberGross: uber,
       boltGross: bolt,
@@ -263,6 +293,41 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                       ],
                     ),
                     const SizedBox(height: 14),
+                    // REGISTO DE ODÓMETRO INICIAL E FINAL
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _startKmController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              labelText: 'Km Inicial (Início)',
+                              prefixIcon: Icon(Icons.pin_drop_outlined, color: AppTheme.textMuted),
+                            ),
+                            onChanged: (_) {
+                              _updateCalculatedKm();
+                              setState(() {});
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _endKmController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              labelText: 'Km Final (Fim)',
+                              prefixIcon: Icon(Icons.flag_outlined, color: AppTheme.accentGreen),
+                            ),
+                            onChanged: (_) {
+                              _updateCalculatedKm();
+                              setState(() {});
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
@@ -270,8 +335,8 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                             controller: _kmController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Km Totais Rodados',
-                              prefixIcon: Icon(Icons.route, color: AppTheme.textMuted),
+                              labelText: 'Km Totais do Turno',
+                              prefixIcon: Icon(Icons.route, color: AppTheme.primaryElectric),
                             ),
                             onChanged: (_) => setState(() {}),
                           ),

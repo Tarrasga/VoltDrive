@@ -4,7 +4,9 @@ class DailyShift {
   final double uberGross;
   final double boltGross;
   final double tips;
-  final double totalKm;
+  final double startKm;        // Km no início do turno (odómetro)
+  final double endKm;          // Km no fim do turno (odómetro)
+  final double _manualTotalKm; // Km total manual se não usar odómetro
   final double chargingCost;
   final double chargingKwh;
   final double tollsCost;
@@ -22,7 +24,9 @@ class DailyShift {
     this.uberGross = 0.0,
     this.boltGross = 0.0,
     this.tips = 0.0,
-    this.totalKm = 0.0,
+    this.startKm = 0.0,
+    this.endKm = 0.0,
+    double totalKm = 0.0,
     this.chargingCost = 0.0,
     this.chargingKwh = 0.0,
     this.tollsCost = 0.0,
@@ -31,7 +35,15 @@ class DailyShift {
     this.notes = '',
     this.platformFeePercent = 25.0,
     this.fleetCommissionPercent = 0.0,
-  });
+  }) : _manualTotalKm = totalKm;
+
+  // Quilómetros totais calculados (se endKm > startKm) ou valor manual
+  double get totalKm {
+    if (endKm > startKm && startKm > 0) {
+      return endKm - startKm;
+    }
+    return _manualTotalKm;
+  }
 
   // Faturação Bruta Total (Uber + Bolt + Tips)
   double get totalGross => uberGross + boltGross + tips;
@@ -75,6 +87,8 @@ class DailyShift {
     'uberGross': uberGross,
     'boltGross': boltGross,
     'tips': tips,
+    'startKm': startKm,
+    'endKm': endKm,
     'totalKm': totalKm,
     'chargingCost': chargingCost,
     'chargingKwh': chargingKwh,
@@ -92,6 +106,8 @@ class DailyShift {
     uberGross: (json['uberGross'] as num?)?.toDouble() ?? 0.0,
     boltGross: (json['boltGross'] as num?)?.toDouble() ?? 0.0,
     tips: (json['tips'] as num?)?.toDouble() ?? 0.0,
+    startKm: (json['startKm'] as num?)?.toDouble() ?? 0.0,
+    endKm: (json['endKm'] as num?)?.toDouble() ?? 0.0,
     totalKm: (json['totalKm'] as num?)?.toDouble() ?? 0.0,
     chargingCost: (json['chargingCost'] as num?)?.toDouble() ?? 0.0,
     chargingKwh: (json['chargingKwh'] as num?)?.toDouble() ?? 0.0,
