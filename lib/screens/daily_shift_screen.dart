@@ -83,21 +83,6 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
       fleetCommissionPercent: _profile.fleetCommissionPercent,
     );
   }
-      date: DateTime.now(),
-      uberGross: uber,
-      boltGross: bolt,
-      tips: tips,
-      totalKm: km,
-      hoursWorked: hours,
-      chargingCost: charging,
-      chargingKwh: kwh,
-      tollsCost: tolls,
-      otherExpenses: others,
-      notes: _notesController.text,
-      platformFeePercent: _profile.platformFeePercent,
-      fleetCommissionPercent: _profile.fleetCommissionPercent,
-    );
-  }
 
   Future<void> _saveShift() async {
     final shift = _calculateCurrentShift();
