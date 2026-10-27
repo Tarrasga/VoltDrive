@@ -38,12 +38,20 @@ jobs:
           flutter create . --platforms=android --org=com.voltdrive --project-name=voltdrive
           chmod +x android/gradlew
 
+          # Garantir namespace correto em android/app/build.gradle
+          sed -i 's/namespace = ".*"/namespace = "com.voltdrive.app"/g' android/app/build.gradle || true
+          sed -i 's/applicationId = ".*"/applicationId = "com.voltdrive.app"/g' android/app/build.gradle || true
+
+          # Criar as pastas de destino para o pacote com.voltdrive.app
+          mkdir -p android/app/src/main/kotlin/com/voltdrive/app
+          mkdir -p android/app/src/main/res/xml
+          mkdir -p android/app/src/main/res/values
+
           # Aplicar os ficheiros nativos do VoltDrive (Permissões, Tacógrafo, Overlay, Acessibilidade)
           cp -f native_custom/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
           cp -f native_custom/MainActivity.kt android/app/src/main/kotlin/com/voltdrive/app/MainActivity.kt
           cp -f native_custom/OverlayManager.kt android/app/src/main/kotlin/com/voltdrive/app/OverlayManager.kt
           cp -f native_custom/VoltAccessibilityService.kt android/app/src/main/kotlin/com/voltdrive/app/VoltAccessibilityService.kt
-          mkdir -p android/app/src/main/res/xml
           cp -f native_custom/accessibility_service_config.xml android/app/src/main/res/xml/accessibility_service_config.xml
           cp -f native_custom/strings.xml android/app/src/main/res/values/strings.xml
 
