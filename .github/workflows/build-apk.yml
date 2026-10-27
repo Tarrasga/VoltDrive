@@ -29,43 +29,55 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Instalar Dependências
+      - name: Instalar Dependências Flutter
         run: flutter pub get
 
-      - name: Compilar APK Android
+      - name: Gerar suporte nativo Android e Gradle Wrapper
+        run: |
+          flutter create . --platforms=android --org=com.voltdrive
+          chmod +x android/gradlew
+          # Configurar o ícone do Renault Zoe
+          mkdir -p android/app/src/main/res/mipmap-mdpi
+          mkdir -p android/app/src/main/res/mipmap-hdpi
+          mkdir -p android/app/src/main/res/mipmap-xhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
+          cp assets/icon/app_icon.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          cp assets/icon/app_icon.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          cp assets/icon/app_icon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          cp assets/icon/app_icon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          cp assets/icon/app_icon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+
+      - name: Compilar APK Android (Release)
         run: |
           flutter build apk --release
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/VoltDrive.apk
+          ls -la build/app/outputs/flutter-apk/
 
-      - name: Guardar Ficheiro VoltDrive.apk como Artifact
+      - name: Guardar VoltDrive.apk como Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VoltDrive-APK
+          name: VoltDrive-Android-APK
           path: build/app/outputs/flutter-apk/VoltDrive.apk
 
-      - name: Publicar Release no GitHub
+      - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0-build-${{ github.run_number }}
-          name: VoltDrive v1.0.0 (Instalador Android)
+          tag_name: v1.0.${{ github.run_number }}
+          name: VoltDrive v1.0.${{ github.run_number }} (Instalador Android)
+          files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
-          files: build/app/outputs/flutter-apk/VoltDrive.apk
           body: |
             ## ⚡ VoltDrive - Assistente TVDE Elétrico (Renault Zoe Edition)
             
-            O instalador Android está pronto para ser descarregado diretamente no teu telemóvel!
+            O instalador Android está pronto!
             
             ### 📥 Como instalar no telemóvel:
-            1. Toca no ficheiro **`VoltDrive.apk`** abaixo nesta página.
-            2. Quando o download terminar, clica para abrir e escolhe **Instalar**.
-            3. Se o Android pedir autorização, clica em **Permitir desta fonte** (é normal para ficheiros APK descarregados diretamente do GitHub).
-            4. O ícone do **Renault Zoe** com o nome **VoltDrive** vai aparecer no teu ecrã inicial!
+            1. Toca no ficheiro **`VoltDrive.apk`** em **Assets** abaixo.
+            2. Quando terminar o download, clica no ficheiro e escolhe **Instalar**.
+            3. Se for pedido, autoriza a instalação de aplicações desta fonte.
             
-            ### 🚀 Funcionalidades incluídas:
-            - ⏱️ **Tacógrafo de Horas TVDE**: Controlo das 10 horas máximas legais (Lei n.º 45/2018) e aviso de pausa de 45m.
-            - ⚡ **Calculadora de Viagem**: Análise de rentabilidade em segundos (comissões Uber/Bolt + consumo do Zoe).
-            - 🔌 **Postos VE 22kW**: Postos Tipo 2 da Margem Sul, Alentejo e simulador de tempo/custo de carregamento.
-            - 📊 **Fecho do Dia**: Apuramento do lucro líquido real, km rodados e média por km.
+            O ícone do **Renault Zoe** e o nome **VoltDrive** vão aparecer no teu ecrã inicial!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
