@@ -18,9 +18,11 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
   final TextEditingController _tripDistController = TextEditingController(text: '9.0');
   final TextEditingController _durationController = TextEditingController(text: '20');
   final TextEditingController _tollsController = TextEditingController(text: '0.00');
+  final TextEditingController _ratePerKmController = TextEditingController(text: '0.74');
 
   VehicleProfile _profile = VehicleProfile();
   bool _usePublicCharging = true;
+  bool _isPrivateTrip = false;
   bool _isLoading = true;
 
   bool _overlayGranted = false;
@@ -42,6 +44,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
     _tripDistController.dispose();
     _durationController.dispose();
     _tollsController.dispose();
+    _ratePerKmController.dispose();
     super.dispose();
   }
 
@@ -85,6 +88,9 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
         ? _profile.energyCostPerKmPublic
         : _profile.energyCostPerKmHome;
 
+    final platformRate = _isPrivateTrip ? 0.0 : (_profile.platformFeePercent / 100.0);
+    final fleetRate = _isPrivateTrip ? 0.0 : (_profile.fleetCommissionPercent / 100.0);
+
     return TripCalculation(
       grossFare: fare,
       pickupDistanceKm: pickup,
@@ -92,15 +98,54 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
       durationMinutes: duration,
       tollsCost: tolls,
       energyCostPerKm: energyCostPerKm,
-      platformFeeRate: _profile.platformFeePercent / 100.0,
-      fleetFeeRate: _profile.fleetCommissionPercent / 100.0,
+      platformFeeRate: platformRate,
+      fleetFeeRate: fleetRate,
     );
+  }
+
+  void _applyRatePerKm(double rate) {
+    final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final tripDist = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final totalDist = pickup + tripDist;
+    final calculatedFare = (totalDist > 0 ? totalDist : 10.0) * rate;
+    _ratePerKmController.text = rate.toStringAsFixed(2);
+    _fareController.text = calculatedFare.toStringAsFixed(2);
+    setState(() {});
+  }
+
+  void _recalculateFareFromRate() {
+    final rate = double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0;
+    final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final tripDist = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final totalDist = pickup + tripDist;
+    if (rate > 0 && totalDist > 0) {
+      final calculatedFare = totalDist * rate;
+      _fareController.text = calculatedFare.toStringAsFixed(2);
+      setState(() {});
+    }
+  }
+
+  void _onFareChanged(String val) {
+    final fare = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
+    final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final trip = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final total = pickup + trip;
+    if (total > 0 && fare > 0) {
+      _ratePerKmController.text = (fare / total).toStringAsFixed(2);
+    }
+    setState(() {});
   }
 
   void _adjustFare(double delta) {
     final current = double.tryParse(_fareController.text.replaceAll(',', '.')) ?? 0.0;
     final next = (current + delta).clamp(0.0, 999.0);
     _fareController.text = next.toStringAsFixed(2);
+    final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final trip = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final total = pickup + trip;
+    if (total > 0) {
+      _ratePerKmController.text = (next / total).toStringAsFixed(2);
+    }
     setState(() {});
   }
 
@@ -108,6 +153,12 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
     final current = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
     final next = (current + delta).clamp(0.0, 999.0);
     _tripDistController.text = next.toStringAsFixed(1);
+    final rate = double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0;
+    final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final total = pickup + next;
+    if (rate > 0 && total > 0) {
+      _fareController.text = (total * rate).toStringAsFixed(2);
+    }
     setState(() {});
   }
 
@@ -315,7 +366,151 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Dados da Corrida Manual (ou Simulada)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Dados da Corrida', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        // Seletor Viagem TVDE vs Particular
+                        GestureDetector(
+                          onTap: () => setState(() => _isPrivateTrip = !_isPrivateTrip),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _isPrivateTrip ? AppTheme.accentGreen.withOpacity(0.18) : AppTheme.darkSurface,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: _isPrivateTrip ? AppTheme.accentGreen : AppTheme.darkBorder,
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _isPrivateTrip ? Icons.person_rounded : Icons.local_taxi_rounded,
+                                  size: 14,
+                                  color: _isPrivateTrip ? AppTheme.accentGreen : AppTheme.primaryElectric,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  _isPrivateTrip ? 'Particular (0% Taxas)' : 'TVDE (${_profile.platformFeePercent.toStringAsFixed(0)}% Taxas)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _isPrivateTrip ? AppTheme.accentGreen : AppTheme.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // NOVO BLOCO: CALCULAR VALOR ATRAVÉS DA DISTÂNCIA E VALOR POR KM
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF131D31),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.primaryElectric.withOpacity(0.35)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.calculate_outlined, color: AppTheme.primaryElectric, size: 18),
+                              SizedBox(width: 6),
+                              Text(
+                                'Calcular Valor através de Distância × €/km',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Toca numa taxa rápida ou escreve o valor por km para calcular o valor total:',
+                            style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // CHIPS RÁPIDOS DE TAXA POR KM
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [0.80, 1.00, 1.20, 1.50, 2.00].map((rate) {
+                              final isSelected = (double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0) == rate;
+                              return ActionChip(
+                                label: Text('${rate.toStringAsFixed(2)} €/km'),
+                                labelStyle: TextStyle(
+                                  color: isSelected ? Colors.black : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                backgroundColor: isSelected ? AppTheme.primaryElectric : AppTheme.darkSurface,
+                                side: BorderSide(
+                                  color: isSelected ? AppTheme.primaryElectric : AppTheme.darkBorder,
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                onPressed: () => _applyRatePerKm(rate),
+                              );
+                            }).toList(),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          // INPUT DE €/KM PERSONALIZADO E DISPLAY DA FÓRMULA
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 4,
+                                child: TextField(
+                                  controller: _ratePerKmController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                                  decoration: InputDecoration(
+                                    labelText: 'Taxa / km (€)',
+                                    labelStyle: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                                    prefixIcon: const Icon(Icons.speed, size: 16, color: AppTheme.primaryElectric),
+                                    filled: true,
+                                    fillColor: AppTheme.darkSurface,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                  ),
+                                  onChanged: (_) => _recalculateFareFromRate(),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 6,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.darkSurface,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppTheme.primaryElectric.withOpacity(0.3)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Cálculo Direto:', style: TextStyle(color: AppTheme.textMuted, fontSize: 10)),
+                                      Text(
+                                        '${calc.totalDistanceKm.toStringAsFixed(1)} km × ${_ratePerKmController.text} €/km',
+                                        style: const TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 12),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
                     const SizedBox(height: 14),
 
                     // VALOR BRUTO PROPOSTO NA APP (€)
@@ -327,10 +522,10 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryElectric),
                             decoration: const InputDecoration(
-                              labelText: 'Valor Proposto (€)',
+                              labelText: 'Valor Total da Viagem (€)',
                               prefixIcon: Icon(Icons.euro, color: AppTheme.primaryElectric),
                             ),
-                            onChanged: (_) => setState(() {}),
+                            onChanged: _onFareChanged,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -353,7 +548,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                               labelText: 'Até Recolha (km)',
                               prefixIcon: Icon(Icons.near_me_outlined, color: AppTheme.textMuted),
                             ),
-                            onChanged: (_) => setState(() {}),
+                            onChanged: (_) => _onDistanceChanged(),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -365,7 +560,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                               labelText: 'Viagem (km)',
                               prefixIcon: Icon(Icons.directions_car_outlined, color: AppTheme.textMuted),
                             ),
-                            onChanged: (_) => setState(() {}),
+                            onChanged: (_) => _onDistanceChanged(),
                           ),
                         ),
                       ],
