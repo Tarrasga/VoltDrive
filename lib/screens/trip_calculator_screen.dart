@@ -781,7 +781,6 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
       ),
     );
   }
-  }
 
   Widget _buildMetricColumn({
     required String label,
