@@ -93,24 +93,23 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.26"
-          name: "VoltDrive v1.0.26 (Desbloqueio Biometrico - Digital e Facial)"
+          tag_name: "v1.0.27"
+          name: "VoltDrive v1.0.27 (Versao no Menu de Login e Biometria)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.26 - Desbloqueio Biometrico (Digital e Facial)
+            ## ⚡ VoltDrive v1.0.27 - Versao Visivel no Login & Desbloqueio Biometrico
 
             ### 🚀 Novidades desta versão:
-            1. **👆 Desbloqueio por Impressao Digital e Reconhecimento Facial**:
-               - Acesso instantâneo com o sensor de impressão digital (Samsung Galaxy) ou reconhecimento facial.
-               - Já não precisas de digitar a palavra-passe de cada vez que abres a app no carro.
-               - Fallback automático para palavra-passe se a biometria falhar ou se preferires digitar.
-            2. **🎯 Menu de Metas Semanais e Mensais**:
-               - Divisão automática do valor em falta pelos dias restantes no mês.
-            3. **🔐 Login com Palavra-passe Ligado ao Email**:
-               - Recuperação de acesso com código de 6 dígitos via email.
-            4. **⚡ Atualizador Automático In-App**:
-               - Descarregamento e lançamento automático do instalador do sistema Android.
+            1. **🏷️ Versão Visível no Ecrã de Login**:
+               - Crachá elegante com a versão instalada (v1.0.27) no topo e rodapé do ecrã de autenticação.
+               - Confirmação visual imediata da versão antes de desbloquear.
+            2. **👆 Desbloqueio por Impressao Digital e Facial**:
+               - Sensor de impressão digital e câmara para reconhecimento facial do Samsung Galaxy.
+            3. **🎯 Metas Semanais e Mensais TVDE**:
+               - Divisão automática pelos dias que faltam para o fim do mês.
+            4. **⚡ Atualização Direta no Telemóvel**:
+               - Atualização 100% automática sem navegador.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/update_service.dart';
 import '../theme/app_theme.dart';
 
 class AuthLockScreen extends StatefulWidget {
@@ -189,7 +190,31 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
           'Renault Zoe Edition • TVDE Protegido',
           style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.darkCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppTheme.primaryElectric.withOpacity(0.4)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.bolt, color: AppTheme.primaryElectric, size: 14),
+              SizedBox(width: 4),
+              Text(
+                'Versão v${UpdateService.currentVersion}',
+                style: TextStyle(
+                  color: AppTheme.primaryElectric,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
 
         // Cartão do Email Associado
         Container(
@@ -348,6 +373,25 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
             ),
           ),
         ),
+
+        const SizedBox(height: 24),
+
+        // Rodapé de Versão
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.shield_outlined, color: AppTheme.textMuted, size: 13),
+            SizedBox(width: 5),
+            Text(
+              'VoltDrive v${UpdateService.currentVersion} • Renault Zoe Z.E. 50',
+              style: TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -475,6 +519,11 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
             });
           },
           child: const Text('Voltar ao Ecrã de Entrada', style: TextStyle(color: AppTheme.textMuted)),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'VoltDrive v${UpdateService.currentVersion}',
+          style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
         ),
       ],
     );
