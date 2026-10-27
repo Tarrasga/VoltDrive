@@ -471,12 +471,12 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                 children: [
                   Icon(
                     Icons.picture_in_picture_alt_rounded,
-                    color: isActive ? AppTheme.accentGreen : AppTheme.primaryElectric,
+                    color: _overlayGranted ? AppTheme.accentGreen : AppTheme.primaryElectric,
                     size: 24,
                   ),
                   const SizedBox(width: 10),
                   const Text(
-                    'Leitor Automático TVDE',
+                    'Janela Flutuante Zoe',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ],
@@ -484,22 +484,22 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (isActive ? AppTheme.accentGreen : AppTheme.warningAmber).withOpacity(0.2),
+                  color: (_overlayGranted ? AppTheme.accentGreen : AppTheme.warningAmber).withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isActive ? Icons.check_circle : Icons.warning_amber_rounded,
-                      color: isActive ? AppTheme.accentGreen : AppTheme.warningAmber,
+                      _overlayGranted ? Icons.check_circle : Icons.warning_amber_rounded,
+                      color: _overlayGranted ? AppTheme.accentGreen : AppTheme.warningAmber,
                       size: 14,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      isActive ? 'ATIVO' : 'PENDENTE',
+                      _overlayGranted ? 'ATIVO' : 'PENDENTE',
                       style: TextStyle(
-                        color: isActive ? AppTheme.accentGreen : AppTheme.warningAmber,
+                        color: _overlayGranted ? AppTheme.accentGreen : AppTheme.warningAmber,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -511,94 +511,45 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
           ),
           const SizedBox(height: 8),
           const Text(
-            'Lê as viagens que tocam na Uber Driver e Bolt Driver no ecrã e mostra uma janela flutuante com o lucro limpo por cima da app!',
+            'Aparece por cima da Bolt Driver e Uber Driver para veres o lucro líquido limpo e €/km do Renault Zoe em tempo real!',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 14),
 
-          // Botões de Ativação de Permissões
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('A abrir menu do Android: ativa a sobreposição para o VoltDrive.'),
-                        duration: Duration(seconds: 3),
-                      ),
-                    );
-                    await AssistantService.requestOverlayPermission();
-                    _checkAssistantPermissions();
-                  },
-                  icon: Icon(
-                    _overlayGranted ? Icons.check_circle : Icons.layers_outlined,
-                    color: _overlayGranted ? AppTheme.accentGreen : AppTheme.primaryElectric,
-                    size: 16,
+          // Botão de Ativação da Janela Flutuante ("Aparecer em cima")
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('A abrir menu do Android: ativa "Aparecer em cima" para o VoltDrive.'),
+                    duration: Duration(seconds: 3),
                   ),
-                  label: Text(
-                    _overlayGranted ? 'Janela Ativa' : '1. Ativar Janela',
-                    style: TextStyle(
-                      color: _overlayGranted ? AppTheme.accentGreen : AppTheme.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(
-                      color: _overlayGranted ? AppTheme.accentGreen.withOpacity(0.5) : AppTheme.darkBorder,
-                    ),
-                    backgroundColor: AppTheme.darkSurface,
-                  ),
+                );
+                await AssistantService.requestOverlayPermission();
+                _checkAssistantPermissions();
+              },
+              icon: Icon(
+                _overlayGranted ? Icons.check_circle : Icons.layers_outlined,
+                color: _overlayGranted ? AppTheme.accentGreen : AppTheme.primaryElectric,
+                size: 18,
+              ),
+              label: Text(
+                _overlayGranted ? 'Janela Flutuante Autorizada ⚡' : 'Ativar Janela Flutuante ("Aparecer em cima")',
+                style: TextStyle(
+                  color: _overlayGranted ? AppTheme.accentGreen : AppTheme.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('A abrir Acessibilidade: procura "VoltDrive - Leitor TVDE" e ativa.'),
-                        duration: Duration(seconds: 3),
-                      ),
-                    );
-                    await AssistantService.requestAccessibilityPermission();
-                    _checkAssistantPermissions();
-                  },
-                  icon: Icon(
-                    _accessibilityEnabled ? Icons.check_circle : Icons.accessibility_new_outlined,
-                    color: _accessibilityEnabled ? AppTheme.accentGreen : AppTheme.primaryElectric,
-                    size: 16,
-                  ),
-                  label: Text(
-                    _accessibilityEnabled ? 'Leitor Ativo' : '2. Ativar Leitor',
-                    style: TextStyle(
-                      color: _accessibilityEnabled ? AppTheme.accentGreen : AppTheme.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(
-                      color: _accessibilityEnabled ? AppTheme.accentGreen.withOpacity(0.5) : AppTheme.darkBorder,
-                    ),
-                    backgroundColor: AppTheme.darkSurface,
-                  ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: _overlayGranted ? AppTheme.accentGreen.withOpacity(0.6) : AppTheme.darkBorder,
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 6),
-
-          // Link de Ajuda para Definições Restritas / Xiaomi / Samsung
-          Center(
-            child: TextButton.icon(
-              onPressed: _showPermissionHelpDialog,
-              icon: const Icon(Icons.help_outline, size: 14, color: AppTheme.primaryElectric),
-              label: const Text(
-                'Ajuda: o menu não abre ou diz "Definição restrita"?',
-                style: TextStyle(fontSize: 11, color: AppTheme.primaryElectric),
+                backgroundColor: AppTheme.darkSurface,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),

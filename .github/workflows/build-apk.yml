@@ -91,18 +91,18 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.22
-          name: VoltDrive v1.0.22 (SOS Instantâneo, Seleção WhatsApp e Sem Bots)
+          tag_name: v1.0.23
+          name: VoltDrive v1.0.23 (Sem Bloqueios Play Protect, SOS e WhatsApp Direto)
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.22 - SOS Direto, Contactos WhatsApp e Sem Bots
+            ## ⚡ VoltDrive v1.0.23 - Livre de Bloqueios do Play Protect
 
-            ### 🚨 Melhorias desta versão:
-            1. **Alertas SOS 100% Funcionais**: Envio imediato pela rede ntfy.sh com localização exata e link para o Google Maps.
-            2. **Escolha de Números no WhatsApp**: Envia a localização e pedido de socorro com 1 toque para qualquer colega guardado ou abre o seletor de Grupos do WhatsApp.
-            3. **Eliminação dos Bots**: Removidos todos os colegas simulados/falsos. Agora o radar só mostra motoristas reais ligados ao mesmo canal.
-            4. **Formatação Automática de Números**: Suporte automático para indicativo português (+351) nos números de 9 dígitos.
+            ### 🚀 Novidades:
+            1. **Instalação Direta e Sem Bloqueios**: Removido o serviço de acessibilidade sensível que fazia o Google Play Protect bloquear o APK no Android 14. Instalação rápida e 100% segura.
+            2. **Janela Flutuante Zoe**: Mantém a sobreposição flutuante sobre a Bolt e Uber com o botão "Aparecer em cima".
+            3. **Alertas SOS e GPS**: Alertas de socorro em tempo real para a rede de colegas com navegação direta pelo Google Maps.
+            4. **Envio Rápido por WhatsApp**: Contactos de emergência rápidos com código de Portugal (+351) e envio para Grupos de TVDE.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
