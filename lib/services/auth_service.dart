@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
@@ -12,16 +13,21 @@ class AuthService {
   static const String _keyPasswordSalt = 'voltdrive_auth_password_salt';
   static const String _keyRecoveryCode = 'voltdrive_auth_recovery_code';
   static const String _keyRecoveryExpiry = 'voltdrive_auth_recovery_expiry';
+  static const String _keyIsBiometricsEnabled = 'voltdrive_auth_biometrics_enabled';
 
   static bool _isLockEnabled = false;
+  static bool _isBiometricsEnabled = true;
   static String _userEmail = '';
   static String _passwordHash = '';
   static String _passwordSalt = '';
   static bool _isUnlocked = false;
 
+  static final LocalAuthentication _localAuth = LocalAuthentication();
+
   static ValueNotifier<bool> authStateNotifier = ValueNotifier<bool>(false);
 
   static bool get isLockEnabled => _isLockEnabled;
+  static bool get isBiometricsEnabled => _isBiometricsEnabled;
   static String get userEmail => _userEmail;
   static bool get isUnlocked => _isUnlocked;
   static bool get hasCredentials => _passwordHash.isNotEmpty && _userEmail.isNotEmpty;
@@ -31,6 +37,7 @@ class AuthService {
     try {
       final prefs = await SharedPreferences.getInstance();
       _isLockEnabled = prefs.getBool(_keyIsLockEnabled) ?? false;
+      _isBiometricsEnabled = prefs.getBool(_keyIsBiometricsEnabled) ?? true;
       _userEmail = prefs.getString(_keyUserEmail) ?? '';
       _passwordHash = prefs.getString(_keyPasswordHash) ?? '';
       _passwordSalt = prefs.getString(_keyPasswordSalt) ?? '';
@@ -45,6 +52,51 @@ class AuthService {
     } catch (e) {
       debugPrint('Erro ao inicializar AuthService: $e');
     }
+  }
+
+  /// Verifica se o dispositivo tem suporte a biometria (impressão digital ou facial)
+  static Future<bool> canUseBiometrics() async {
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      return canCheck || isSupported;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Tenta desbloquear via Biometria (Impressão Digital ou Reconhecimento Facial)
+  static Future<bool> authenticateBiometrics() async {
+    if (!_isBiometricsEnabled) return false;
+    try {
+      final can = await canUseBiometrics();
+      if (!can) return false;
+
+      final didAuth = await _localAuth.authenticate(
+        localizedReason: 'Toca no sensor de impressão digital ou olha para o telemóvel para desbloquear o VoltDrive',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+          useErrorDialogs: true,
+        ),
+      );
+
+      if (didAuth) {
+        _isUnlocked = true;
+        authStateNotifier.value = true;
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Erro na autenticação biométrica: $e');
+    }
+    return false;
+  }
+
+  /// Ativa ou desativa a utilização de biometria
+  static Future<void> setBiometricsEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyIsBiometricsEnabled, enabled);
+    _isBiometricsEnabled = enabled;
   }
 
   /// Gera um hash SHA-256 seguro com salt

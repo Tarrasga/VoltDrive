@@ -16,6 +16,7 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
   bool _obscureText = true;
   String? _errorMessage;
   bool _isRecovering = false;
+  bool _canCheckBiometrics = false;
 
   // Controladores de Recuperação
   final TextEditingController _recoveryCodeController = TextEditingController();
@@ -23,6 +24,32 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
   String? _sentCodeForOfflineDisplay;
   bool _recoveryCodeSent = false;
   String? _recoveryError;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAndPromptBiometrics();
+  }
+
+  Future<void> _checkAndPromptBiometrics() async {
+    final canBio = await AuthService.canUseBiometrics();
+    if (mounted) {
+      setState(() => _canCheckBiometrics = canBio);
+    }
+    if (canBio && AuthService.isBiometricsEnabled) {
+      // Disparar automaticamente ao abrir o ecrã
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) _handleBiometricAuth();
+      });
+    }
+  }
+
+  Future<void> _handleBiometricAuth() async {
+    final success = await AuthService.authenticateBiometrics();
+    if (success && mounted) {
+      widget.onUnlocked();
+    }
+  }
 
   @override
   void dispose() {
@@ -122,25 +149,28 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // Ícone e Logo
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppTheme.primaryElectric.withOpacity(0.12),
-            border: Border.all(color: AppTheme.primaryElectric, width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryElectric.withOpacity(0.25),
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.lock_rounded,
-            color: AppTheme.primaryElectric,
-            size: 40,
+        GestureDetector(
+          onTap: _canCheckBiometrics ? _handleBiometricAuth : null,
+          child: Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.primaryElectric.withOpacity(0.12),
+              border: Border.all(color: AppTheme.primaryElectric, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryElectric.withOpacity(0.25),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Icon(
+              _canCheckBiometrics ? Icons.fingerprint_rounded : Icons.lock_rounded,
+              color: AppTheme.primaryElectric,
+              size: 44,
+            ),
           ),
         ),
         const SizedBox(height: 20),
@@ -272,6 +302,31 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
             ),
           ),
         ),
+
+        // Botão Desbloqueio Biométrico (Impressão Digital / Facial)
+        if (_canCheckBiometrics) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: OutlinedButton.icon(
+              onPressed: _handleBiometricAuth,
+              icon: const Icon(Icons.fingerprint_rounded, color: AppTheme.primaryElectric, size: 24),
+              label: const Text(
+                'Entrar com Impressão Digital / Facial',
+                style: TextStyle(
+                  color: AppTheme.primaryElectric,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.primaryElectric, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+        ],
 
         const SizedBox(height: 20),
 

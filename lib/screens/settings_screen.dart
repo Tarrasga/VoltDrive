@@ -392,6 +392,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                       ],
                     ),
+                    if (AuthService.isLockEnabled && AuthService.hasCredentials) ...[
+                      const Divider(color: AppTheme.darkBorder, height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.fingerprint_rounded, color: AppTheme.accentGreen, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Desbloqueio Digital / Facial',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                          Switch(
+                            value: AuthService.isBiometricsEnabled,
+                            activeColor: AppTheme.accentGreen,
+                            onChanged: (val) async {
+                              await AuthService.setBiometricsEnabled(val);
+                              setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
