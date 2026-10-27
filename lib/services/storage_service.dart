@@ -74,6 +74,31 @@ class StorageService {
     await prefs.setStringList(_keyShifts, listJson);
   }
 
+  // Obter turnos de um determinado mês
+  static Future<List<DailyShift>> getShiftsForMonth(DateTime month) async {
+    final all = await loadShifts();
+    return all.where((s) => s.date.year == month.year && s.date.month == month.month).toList();
+  }
+
+  // Obter turnos de uma determinada semana
+  static Future<List<DailyShift>> getShiftsForWeek(DateTime dateInWeek) async {
+    final all = await loadShifts();
+    final monday = dateInWeek.subtract(Duration(days: dateInWeek.weekday - 1));
+    final start = DateTime(monday.year, monday.month, monday.day);
+    final end = start.add(const Duration(days: 7));
+    return all.where((s) => s.date.isAfter(start.subtract(const Duration(seconds: 1))) && s.date.isBefore(end)).toList();
+  }
+
+  // Obter turno de um dia específico
+  static Future<DailyShift?> getShiftForDate(DateTime date) async {
+    final all = await loadShifts();
+    try {
+      return all.firstWhere((s) => s.date.year == date.year && s.date.month == date.month && s.date.day == date.day);
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ==========================================
   // REGISTO DE HORAS DE CONDUÇÃO (LEI TVDE)
   // ==========================================

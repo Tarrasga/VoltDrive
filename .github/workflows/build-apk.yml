@@ -91,18 +91,18 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.23
-          name: VoltDrive v1.0.23 (Sem Bloqueios Play Protect, SOS e WhatsApp Direto)
+          tag_name: v1.0.24
+          name: VoltDrive v1.0.24 (Calendário de Lucros Diários, Semanais e Mensais)
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.23 - Livre de Bloqueios do Play Protect
+            ## ⚡ VoltDrive v1.0.24 - Calendário Financeiro TVDE (Renault Zoe Edition)
 
-            ### 🚀 Novidades:
-            1. **Instalação Direta e Sem Bloqueios**: Removido o serviço de acessibilidade sensível que fazia o Google Play Protect bloquear o APK no Android 14. Instalação rápida e 100% segura.
-            2. **Janela Flutuante Zoe**: Mantém a sobreposição flutuante sobre a Bolt e Uber com o botão "Aparecer em cima".
-            3. **Alertas SOS e GPS**: Alertas de socorro em tempo real para a rede de colegas com navegação direta pelo Google Maps.
-            4. **Envio Rápido por WhatsApp**: Contactos de emergência rápidos com código de Portugal (+351) e envio para Grupos de TVDE.
+            ### 📅 Novidades desta versão:
+            1. **Calendário Mensal Visual**: Vista interativa com lucro líquido limpo em cada dia trabalhado e dias de descanso.
+            2. **Análise Semanal & Controlo das 50h TVDE**: Lucros da semana, médias diárias/hora e barra de controlo do limite legal de 50 horas semanais.
+            3. **Fecho e Detalhe Diário**: Detalhe da Uber, Bolt, Gorjetas, custo do carregamento elétrico do Zoe, portagens e rentabilidade real (€/km e €/h).
+            4. **Registo Rápido de Turno**: Formulário intuitivo para fechar o dia em 30 segundos com cálculo instantâneo do que fica na conta.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 import 'trip_calculator_screen.dart';
 import 'driving_hours_screen.dart';
 import 'charging_stations_screen.dart';
-import 'daily_shift_screen.dart';
+import 'profit_calendar_screen.dart';
 import 'settings_screen.dart';
 import 'safety_buddies_screen.dart';
 
@@ -24,7 +24,7 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
     TripCalculatorScreen(),
     DrivingHoursScreen(),
     ChargingStationsScreen(),
-    DailyShiftScreen(),
+    ProfitCalendarScreen(),
     SettingsScreen(),
   ];
 
@@ -142,9 +142,9 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
             label: 'Postos VE',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.query_stats_outlined),
-            activeIcon: Icon(Icons.query_stats),
-            label: 'Fecho do Dia',
+            icon: Icon(Icons.calendar_month_outlined),
+            activeIcon: Icon(Icons.calendar_month),
+            label: 'Lucros & Mês',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
