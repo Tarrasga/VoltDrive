@@ -28,6 +28,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
 
   bool _overlayGranted = false;
   bool _accessibilityEnabled = false;
+  bool _isReaderPaused = false;
 
   @override
   void initState() {
@@ -59,10 +60,12 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
   Future<void> _checkAssistantPermissions() async {
     final overlay = await AssistantService.isOverlayGranted();
     final a11y = await AssistantService.isAccessibilityEnabled();
+    final paused = await AssistantService.isScreenReaderPaused();
     if (mounted) {
       setState(() {
         _overlayGranted = overlay;
         _accessibilityEnabled = a11y;
+        _isReaderPaused = paused;
       });
     }
   }
@@ -210,7 +213,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
 
     final calc = _calculate();
     final verdictColor = _getVerdictColor(calc.verdict);
-    final isAssistantActive = _overlayGranted && _accessibilityEnabled;
+    final isAssistantActive = _overlayGranted && _accessibilityEnabled && !_isReaderPaused;
 
     return Scaffold(
       appBar: AppBar(
@@ -691,22 +694,33 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (isActive ? AppTheme.accentGreen : AppTheme.warningAmber).withOpacity(0.2),
+                  color: (!(_overlayGranted && _accessibilityEnabled)
+                          ? AppTheme.warningAmber
+                          : (_isReaderPaused ? Colors.redAccent : AppTheme.accentGreen))
+                      .withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isActive ? Icons.check_circle : Icons.warning_amber_rounded,
-                      color: isActive ? AppTheme.accentGreen : AppTheme.warningAmber,
+                      !(_overlayGranted && _accessibilityEnabled)
+                          ? Icons.warning_amber_rounded
+                          : (_isReaderPaused ? Icons.pause_circle_filled : Icons.check_circle),
+                      color: !(_overlayGranted && _accessibilityEnabled)
+                          ? AppTheme.warningAmber
+                          : (_isReaderPaused ? Colors.redAccent : AppTheme.accentGreen),
                       size: 14,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      isActive ? '100% PRONTO' : 'CONFIGURAR',
+                      !(_overlayGranted && _accessibilityEnabled)
+                          ? 'CONFIGURAR'
+                          : (_isReaderPaused ? 'LEITOR PARADO' : '100% PRONTO'),
                       style: TextStyle(
-                        color: isActive ? AppTheme.accentGreen : AppTheme.warningAmber,
+                        color: !(_overlayGranted && _accessibilityEnabled)
+                            ? AppTheme.warningAmber
+                            : (_isReaderPaused ? Colors.redAccent : AppTheme.accentGreen),
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -784,17 +798,25 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.darkSurface,
+              color: _isReaderPaused
+                  ? const Color(0xFF2A1515)
+                  : (_accessibilityEnabled ? const Color(0xFF0F2618) : AppTheme.darkSurface),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _accessibilityEnabled ? AppTheme.accentGreen.withOpacity(0.4) : AppTheme.darkBorder,
+                color: _isReaderPaused
+                    ? Colors.redAccent.withOpacity(0.5)
+                    : (_accessibilityEnabled ? AppTheme.accentGreen.withOpacity(0.5) : AppTheme.darkBorder),
               ),
             ),
             child: Row(
               children: [
                 Icon(
-                  _accessibilityEnabled ? Icons.check_circle : Icons.visibility_outlined,
-                  color: _accessibilityEnabled ? AppTheme.accentGreen : AppTheme.warningAmber,
+                  _isReaderPaused
+                      ? Icons.pause_circle_filled
+                      : (_accessibilityEnabled ? Icons.check_circle : Icons.visibility_outlined),
+                  color: _isReaderPaused
+                      ? Colors.amber
+                      : (_accessibilityEnabled ? AppTheme.accentGreen : AppTheme.warningAmber),
                   size: 22,
                 ),
                 const SizedBox(width: 10),
@@ -807,10 +829,17 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       Text(
-                        _accessibilityEnabled ? 'Leitor ativo e a escutar' : 'Acessibilidade > "VoltDrive"',
+                        !_accessibilityEnabled
+                            ? 'Acessibilidade > "VoltDrive"'
+                            : (_isReaderPaused
+                                ? 'Leitor PARADO (Não lê o ecrã)'
+                                : 'Leitor ATIVO e a escutar pedidos'),
                         style: TextStyle(
-                          color: _accessibilityEnabled ? AppTheme.accentGreen : AppTheme.textMuted,
+                          color: !_accessibilityEnabled
+                              ? AppTheme.textMuted
+                              : (_isReaderPaused ? Colors.amber : AppTheme.accentGreen),
                           fontSize: 11,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -830,10 +859,88 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                     child: const Text('Ligar', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
                   )
                 else
-                  const Icon(Icons.done_all, color: AppTheme.accentGreen, size: 20),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final newPaused = !_isReaderPaused;
+                      await AssistantService.setScreenReaderPaused(newPaused);
+                      setState(() => _isReaderPaused = newPaused);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            newPaused
+                                ? '⏹️ Leitor parado! O VoltDrive não irá ler o ecrã.'
+                                : '▶️ Leitor ativado! A escutar ofertas na Uber e Bolt.',
+                          ),
+                          backgroundColor: newPaused ? Colors.redAccent : AppTheme.accentGreen,
+                        ),
+                      );
+                    },
+                    icon: Icon(
+                      _isReaderPaused ? Icons.play_arrow : Icons.stop,
+                      color: _isReaderPaused ? Colors.black : Colors.white,
+                      size: 16,
+                    ),
+                    label: Text(
+                      _isReaderPaused ? 'Ativar' : 'Parar',
+                      style: TextStyle(
+                        color: _isReaderPaused ? Colors.black : Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isReaderPaused ? AppTheme.accentGreen : const Color(0xFFDC2626),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                    ),
+                  ),
               ],
             ),
           ),
+
+          // BOTÃO PRINCIPAL DE PARAR / ATIVAR LEITURA DE ECRÃ
+          if (_accessibilityEnabled) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final newPaused = !_isReaderPaused;
+                  await AssistantService.setScreenReaderPaused(newPaused);
+                  setState(() => _isReaderPaused = newPaused);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        newPaused
+                            ? '⏹️ Leitor parado. Nenhuma janela irá aparecer sobre o ecrã.'
+                            : '▶️ Leitor de ecrã ativo e pronto para ler viagens!',
+                      ),
+                      backgroundColor: newPaused ? Colors.redAccent : AppTheme.accentGreen,
+                    ),
+                  );
+                },
+                icon: Icon(
+                  _isReaderPaused ? Icons.play_circle_fill : Icons.stop_circle,
+                  color: _isReaderPaused ? Colors.black : Colors.white,
+                  size: 20,
+                ),
+                label: Text(
+                  _isReaderPaused ? 'ATIVAR LEITURA DO ECRÃ' : 'PARAR DE LER O ECRÃ',
+                  style: TextStyle(
+                    color: _isReaderPaused ? Colors.black : Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _isReaderPaused ? AppTheme.accentGreen : const Color(0xFFDC2626),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 4,
+                ),
+              ),
+            ),
+          ],
 
           const SizedBox(height: 8),
 

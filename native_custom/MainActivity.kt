@@ -79,6 +79,32 @@ class MainActivity: FlutterFragmentActivity() {
                     val isRunning = VoltAccessibilityService.isServiceRunning || isAccessibilitySettingsEnabled()
                     result.success(isRunning)
                 }
+                "isScreenReaderPaused" -> {
+                    val prefs = getSharedPreferences("voltdrive_prefs", Context.MODE_PRIVATE)
+                    val paused = prefs.getBoolean("screen_reader_paused", false)
+                    VoltAccessibilityService.isReadingPaused = paused
+                    result.success(paused)
+                }
+                "setScreenReaderPaused" -> {
+                    val paused = call.argument<Boolean>("paused") ?: true
+                    VoltAccessibilityService.isReadingPaused = paused
+                    val prefs = getSharedPreferences("voltdrive_prefs", Context.MODE_PRIVATE)
+                    prefs.edit().putBoolean("screen_reader_paused", paused).apply()
+                    if (paused) {
+                        OverlayManager.hideOverlay()
+                    }
+                    result.success(true)
+                }
+                "stopAccessibilityService" -> {
+                    VoltAccessibilityService.isReadingPaused = true
+                    val prefs = getSharedPreferences("voltdrive_prefs", Context.MODE_PRIVATE)
+                    prefs.edit().putBoolean("screen_reader_paused", true).apply()
+                    OverlayManager.hideOverlay()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        VoltAccessibilityService.instance?.disableSelf()
+                    }
+                    result.success(true)
+                }
                 "requestAccessibilityPermission" -> {
                     var launched = false
                     try {

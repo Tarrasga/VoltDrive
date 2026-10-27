@@ -17,6 +17,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import java.util.Locale
 
 object OverlayManager {
@@ -167,6 +168,32 @@ object OverlayManager {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
             }
 
+            val pauseBtn = TextView(appContext).apply {
+                text = "⏸"
+                textSize = 14f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.WHITE)
+                val btnBg = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.parseColor("#475569")) // Slate circle
+                }
+                background = btnBg
+                gravity = Gravity.CENTER
+                val p = LinearLayout.LayoutParams(dpToPx(appContext, 32f), dpToPx(appContext, 32f))
+                p.setMargins(0, 0, dpToPx(appContext, 8f), 0)
+                layoutParams = p
+                isClickable = true
+                isFocusable = false
+                setOnClickListener {
+                    android.util.Log.d("VoltDrive", "Pause button clicked - stopping screen reader.")
+                    VoltAccessibilityService.isReadingPaused = true
+                    val prefs = appContext.getSharedPreferences("voltdrive_prefs", Context.MODE_PRIVATE)
+                    prefs.edit().putBoolean("screen_reader_paused", true).apply()
+                    hideOverlay()
+                    Toast.makeText(appContext, "⏹️ Leitor VoltDrive em pausa", Toast.LENGTH_SHORT).show()
+                }
+            }
+
             val closeBtn = TextView(appContext).apply {
                 text = "✕"
                 textSize = 15f
@@ -189,6 +216,7 @@ object OverlayManager {
 
             headerRow.addView(platformChip)
             headerRow.addView(appTitle)
+            headerRow.addView(pauseBtn)
             headerRow.addView(closeBtn)
             card.addView(headerRow)
 

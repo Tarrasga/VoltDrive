@@ -52,6 +52,27 @@ class AssistantService {
     }
   }
 
+  static Future<bool> isScreenReaderPaused() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('isScreenReaderPaused');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> setScreenReaderPaused(bool paused) async {
+    try {
+      await _channel.invokeMethod('setScreenReaderPaused', {'paused': paused});
+    } catch (_) {}
+  }
+
+  static Future<void> stopAccessibilityService() async {
+    try {
+      await _channel.invokeMethod('stopAccessibilityService');
+    } catch (_) {}
+  }
+
   static Future<bool> requestAccessibilityPermission() async {
     try {
       final res = await _channel.invokeMethod<bool>('requestAccessibilityPermission');

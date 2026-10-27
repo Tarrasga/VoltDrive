@@ -94,25 +94,22 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.34"
-          name: "VoltDrive v1.0.34 (Postos Ordenados por Proximidade GPS)"
+          tag_name: "v1.0.35"
+          name: "VoltDrive v1.0.35 (Botao para Parar de Ler o Ecra)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.34 - Postos de Carregamento por Proximidade GPS
+            ## ⚡ VoltDrive v1.0.35 - Controlo Total: Botão Parar / Retomar Leitura de Ecrã
 
             ### 🚀 Novidades:
-            1. **📍 Ordenação Automática por Mais Próximos (GPS)**:
-               - Os postos de carregamento agora são ordenados automaticamente pela distância em relação à localização do condutor.
-               - Distância em tempo real visível em cada cartão (ex.: `📍 850 m` ou `📍 2.3 km`).
-               - Botão de atualização de GPS rápido na barra superior.
-            2. **🧭 Navegação Direta com Waze e Google Maps**:
-               - Abertura direta da rota no Waze ou no Google Maps com um clique no posto pretendido.
-            3. **🎯 Filtros e Critérios de Ordenação**:
-               - Alternador rápido: Mais Próximos, Maior Potência (kW), Menor Preço (€/kWh) e Mais Vagas Livres.
-               - Filtros adicionais por cidade e velocidade de carga.
-            4. **🚗 Cobertura Expandida de Hubs de Alta Potência**:
+            1. **⏹️ Botão Direto "PARAR DE LER O ECRÃ"**:
+               - Adicionado um botão principal no painel do Assistente para pausar/retomar a leitura a qualquer momento com 1 clique.
+               - Quando parado, o serviço suspende totalmente a leitura de acessibilidade, garantindo 0 sobreposições e 0 consumo de bateria.
+            2. **⏸️ Botão de Pausa Rápida na Janela Flutuante**:
+               - O cartão de oferta no ecrã inclui agora um botão `⏸` junto ao `✕`, permitindo pausar o leitor diretamente enquanto se conduz.
+            3. **📍 Postos de Carregamento por Proximidade GPS**:
+               - Ordenação em tempo real pelo carregador mais próximo do Renault Zoe, com atalhos de rota Waze e Google Maps.
                - Mais postos adicionados na Margem Sul (Almada Forum, Pragal, RioSul, Barreiro, Montijo, Setúbal) e Grande Lisboa (Parque das Nações, UBBO Amadora, Sete Rios, CascaiShopping).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

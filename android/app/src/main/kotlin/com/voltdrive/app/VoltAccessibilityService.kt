@@ -15,7 +15,9 @@ import kotlin.math.abs
 class VoltAccessibilityService : AccessibilityService() {
 
     companion object {
+        var instance: VoltAccessibilityService? = null
         var isServiceRunning = false
+        var isReadingPaused = false
         var lastOfferTimestamp = 0L
         var lastGrossFare = 0.0
         var lastDistanceKm = 0.0
@@ -27,12 +29,16 @@ class VoltAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
         isServiceRunning = true
-        android.util.Log.i("VoltDrive", "VoltAccessibilityService connected and active!")
+        val prefs = getSharedPreferences("voltdrive_prefs", Context.MODE_PRIVATE)
+        isReadingPaused = prefs.getBoolean("screen_reader_paused", false)
+        android.util.Log.i("VoltDrive", "VoltAccessibilityService connected, isReadingPaused=$isReadingPaused")
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        instance = null
         isServiceRunning = false
         OverlayManager.hideOverlay()
         android.util.Log.i("VoltDrive", "VoltAccessibilityService destroyed.")
@@ -72,6 +78,10 @@ class VoltAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        if (isReadingPaused) {
+            // Leitor pausado / parado pelo utilizador
+            return
+        }
         val pkg = event.packageName?.toString() ?: return
 
         val isUber = pkg.contains("ubercab.driver")
