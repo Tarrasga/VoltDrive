@@ -22,6 +22,14 @@ class FinancialGoalsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'pt_PT', symbol: '€', decimalDigits: 2);
+    String formatCurrency(double val) {
+      try {
+        return currencyFormat.format(val);
+      } catch (_) {
+        return '${val.toStringAsFixed(2).replaceAll('.', ',')} €';
+      }
+    }
+
     final calculation = isMonthView
         ? goals.calculateMonthlyPace(shifts)
         : goals.calculateWeeklyPace(shifts);
@@ -104,7 +112,7 @@ class FinancialGoalsCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${currencyFormat.format(calculation.achieved)} / ${currencyFormat.format(calculation.target)} (${calculation.percentage.toStringAsFixed(0)}%)',
+                '${formatCurrency(calculation.achieved)} / ${formatCurrency(calculation.target)} (${calculation.percentage.toStringAsFixed(0)}%)',
                 style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
               ),
               if (!reached)
@@ -135,8 +143,8 @@ class FinancialGoalsCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     reached
-                        ? '🎉 Meta atingida! Lucro extra: +${currencyFormat.format(-calculation.remaining)}'
-                        : 'Meta diária necessária: ${currencyFormat.format(calculation.requiredDailyPaceCalendar)} / dia',
+                        ? '🎉 Meta atingida! Lucro extra: +${formatCurrency(-calculation.remaining)}'
+                        : 'Meta diária necessária: ${formatCurrency(calculation.requiredDailyPaceCalendar)} / dia',
                     style: TextStyle(
                       color: reached ? AppTheme.accentGreen : Colors.white,
                       fontWeight: FontWeight.bold,

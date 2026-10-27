@@ -93,21 +93,20 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.30"
-          name: "VoltDrive v1.0.30 (Ativacao do Leitor de Ecrã e Janela Flutuante Uber & Bolt)"
+          tag_name: "v1.0.31"
+          name: "VoltDrive v1.0.31 (Correcao do Ecrã de Ajustar Metas Financeiras)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.30 - Janela Flutuante & Leitor TVDE Ativo
+            ## ⚡ VoltDrive v1.0.31 - Correção do Ecrã de Metas Financeiras
 
-            ### 🚀 Correção Crítica da Janela Flutuante:
-            1. **👁️ Ativação do Serviço de Acessibilidade no AndroidManifest**:
-               - Registado oficialmente o serviço nativo `VoltAccessibilityService` para ler viagens em tempo real da Uber Driver e Bolt Driver.
-            2. **🪟 Cartão Flutuante TVDE**:
-               - Painel com o estado das duas permissões essenciais ("Aparecer em cima" e "Leitor TVDE").
-               - Botão de teste direto no ecrã e botão de ajuda para contornar a "Definição restrita" do Samsung One UI / Android 14.
-            3. **🔑 Chave de Assinatura Permanente Oficial**:
-               - Atualizações diretas in-app ou por APK sem desinstalar.
+            ### 🚀 O que foi corrigido:
+            1. **🎯 Correção do Ecrã de Ajuste de Metas (Ecrã em Branco)**:
+               - Corrigida a exceção `LocaleDataException` de formatação de datas em português que causava a renderização de um ecrã em branco em modo release.
+               - Adicionada inicialização global de `initializeDateFormatting` e método seguro à prova de falhas com nomes estáticos de meses e formatação de moeda.
+               - Ajustadas as restrições de altura do modal com `MediaQuery` para layout perfeito.
+            2. **🔑 Chave de Assinatura Permanente Oficial**:
+               - Atualização direta sem precisar de desinstalar.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

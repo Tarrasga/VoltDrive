@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'screens/auth_lock_screen.dart';
 import 'screens/auth_register_screen.dart';
 import 'screens/home_navigation_screen.dart';
@@ -8,6 +9,11 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar suporte de formatação e datas em português
+  try {
+    await initializeDateFormatting('pt_PT', null);
+  } catch (_) {}
   
   // Bloquear orientação para vertical para melhor experiência no suporte do carro
   await SystemChrome.setPreferredOrientations([

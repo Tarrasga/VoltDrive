@@ -16,8 +16,8 @@ class FinancialGoalsScreen extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => FractionallySizedBox(
-        heightFactor: 0.92,
+      builder: (modalContext) => SizedBox(
+        height: MediaQuery.of(modalContext).size.height * 0.92,
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: FinancialGoalsScreen(preloadedShifts: shifts),
@@ -44,6 +44,14 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
 
   final currencyFormat = NumberFormat.currency(locale: 'pt_PT', symbol: '€', decimalDigits: 2);
 
+  String _formatCurrency(double value) {
+    try {
+      return currencyFormat.format(value);
+    } catch (_) {
+      return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -60,19 +68,28 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
   }
 
   Future<void> _loadData() async {
-    final loadedGoals = await StorageService.loadFinancialGoals();
-    final loadedShifts = widget.preloadedShifts ?? await StorageService.loadShifts();
+    try {
+      final loadedGoals = await StorageService.loadFinancialGoals();
+      final loadedShifts = widget.preloadedShifts ?? await StorageService.loadShifts();
 
-    if (mounted) {
-      setState(() {
-        _goals = loadedGoals;
-        _shifts = loadedShifts;
-        _monthlyController.text = loadedGoals.monthlyTarget.toStringAsFixed(0);
-        _weeklyController.text = loadedGoals.weeklyTarget.toStringAsFixed(0);
-        _targetType = loadedGoals.targetType;
-        _workDaysPerWeek = loadedGoals.workDaysPerWeek;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _goals = loadedGoals;
+          _shifts = loadedShifts;
+          _monthlyController.text = loadedGoals.monthlyTarget.toStringAsFixed(0);
+          _weeklyController.text = loadedGoals.weeklyTarget.toStringAsFixed(0);
+          _targetType = loadedGoals.targetType;
+          _workDaysPerWeek = loadedGoals.workDaysPerWeek;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar dados de metas: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -129,8 +146,11 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
     final weekPace = tempGoals.calculateWeeklyPace(_shifts);
 
     final now = DateTime.now();
-    final monthName = DateFormat('MMMM', 'pt_PT').format(now);
-    final capitalizedMonth = monthName[0].toUpperCase() + monthName.substring(1);
+    const ptMonths = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    final capitalizedMonth = ptMonths[(now.month - 1).clamp(0, 11)];
 
     return Scaffold(
       backgroundColor: AppTheme.darkBackground,
@@ -298,7 +318,7 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
                 children: [
                   const Text('Alcançado até hoje', style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
                   Text(
-                    currencyFormat.format(p.achieved),
+                    _formatCurrency(p.achieved),
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ],
@@ -308,7 +328,7 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
                 children: [
                   const Text('Meta Definida', style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
                   Text(
-                    currencyFormat.format(p.target),
+                    _formatCurrency(p.target),
                     style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ],
@@ -335,7 +355,7 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Faltam fechar: ${currencyFormat.format(p.remaining)} em ${p.daysLeft} dias',
+                          'Faltam fechar: ${_formatCurrency(p.remaining)} em ${p.daysLeft} dias',
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
                         ),
                       ),
@@ -350,7 +370,7 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
                         style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
                       ),
                       Text(
-                        '${currencyFormat.format(p.requiredDailyPaceCalendar)} / dia',
+                        '${_formatCurrency(p.requiredDailyPaceCalendar)} / dia',
                         style: const TextStyle(
                           color: AppTheme.accentGreen,
                           fontWeight: FontWeight.bold,
@@ -369,7 +389,7 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
                           style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
                         ),
                         Text(
-                          '${currencyFormat.format(p.requiredDailyPaceWorking)} / dia de condução',
+                          '${_formatCurrency(p.requiredDailyPaceWorking)} / dia de condução',
                           style: const TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.w600, fontSize: 12),
                         ),
                       ],
@@ -399,7 +419,7 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
                           style: TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         Text(
-                          'Ultrapassada em +${currencyFormat.format(-p.remaining)} de lucro extra!',
+                          'Ultrapassada em +${_formatCurrency(-p.remaining)} de lucro extra!',
                           style: const TextStyle(color: Colors.white, fontSize: 12),
                         ),
                       ],
@@ -486,11 +506,11 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Alcançado: ${currencyFormat.format(p.achieved)}',
+                'Alcançado: ${_formatCurrency(p.achieved)}',
                 style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
               ),
               Text(
-                'Meta: ${currencyFormat.format(p.target)}',
+                'Meta: ${_formatCurrency(p.target)}',
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ],
@@ -513,7 +533,7 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
                     style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
                   ),
                   Text(
-                    '${currencyFormat.format(p.requiredDailyPaceCalendar)} / dia',
+                    '${_formatCurrency(p.requiredDailyPaceCalendar)} / dia',
                     style: const TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ],
