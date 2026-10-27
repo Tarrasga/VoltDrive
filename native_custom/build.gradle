@@ -25,7 +25,11 @@ if (flutterVersionName == null) {
 android {
     namespace "com.voltdrive.app"
     compileSdkVersion 36
-    ndkVersion flutter.ndkVersion
+    if (System.getenv("ANDROID_NDK_HOME") != null && new File(System.getenv("ANDROID_NDK_HOME")).exists()) {
+        ndkPath System.getenv("ANDROID_NDK_HOME")
+    } else {
+        ndkVersion flutter.ndkVersion
+    }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

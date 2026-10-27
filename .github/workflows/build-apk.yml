@@ -39,6 +39,7 @@ jobs:
           chmod +x android/gradlew
 
           # Aplicar configuração Gradle permanente e chave de assinatura estável (Keystore Oficial)
+          rm -f android/app/build.gradle.kts
           cp -f native_custom/build.gradle android/app/build.gradle
           cp -f native_custom/voltdrive-release.jks android/app/voltdrive-release.jks
 
