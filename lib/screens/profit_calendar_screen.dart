@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/daily_shift.dart';
 import '../models/vehicle_profile.dart';
+import '../models/financial_goals.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
+import 'financial_goals_screen.dart';
+import '../widgets/financial_goals_card.dart';
 
 enum CalendarViewType { month, week, day }
 
@@ -19,6 +22,7 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
   DateTime _selectedDate = DateTime.now();
   List<DailyShift> _allShifts = [];
   VehicleProfile _profile = VehicleProfile();
+  FinancialGoals _goals = FinancialGoals();
   bool _isLoading = true;
 
   @override
@@ -30,10 +34,12 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
   Future<void> _loadData() async {
     final shifts = await StorageService.loadShifts();
     final prof = await StorageService.loadVehicleProfile();
+    final goals = await StorageService.loadFinancialGoals();
     if (mounted) {
       setState(() {
         _allShifts = shifts;
         _profile = prof;
+        _goals = goals;
         _isLoading = false;
       });
     }
@@ -111,6 +117,13 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.track_changes_rounded, color: AppTheme.accentGreen),
+            tooltip: 'Metas & Ritmo Diário',
+            onPressed: () {
+              FinancialGoalsScreen.showAsModal(context, shifts: _allShifts, onSaved: _loadData);
+            },
+          ),
           TextButton.icon(
             onPressed: _goToToday,
             icon: const Icon(Icons.today, size: 16, color: AppTheme.primaryElectric),
@@ -270,6 +283,14 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // METAS DO MÊS & RITMO DIÁRIO
+        FinancialGoalsCard(
+          goals: _goals,
+          shifts: _allShifts,
+          isMonthView: true,
+          onGoalsChanged: _loadData,
+        ),
+
         // RESUMO DO MÊS (CARDS)
         Container(
           padding: const EdgeInsets.all(16),
@@ -473,6 +494,14 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // METAS DA SEMANA & RITMO DIÁRIO
+        FinancialGoalsCard(
+          goals: _goals,
+          shifts: _allShifts,
+          isMonthView: false,
+          onGoalsChanged: _loadData,
+        ),
+
         // RESUMO DA SEMANA
         Container(
           padding: const EdgeInsets.all(16),

@@ -1,7 +1,7 @@
 name: voltdrive
 description: "VoltDrive - O assistente definitivo para motoristas TVDE com veículos elétricos (Renault Zoe Edition)"
 publish_to: "none"
-version: 1.0.24+24
+version: 1.0.25+25
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -12,6 +12,7 @@ dependencies:
   cupertino_icons: ^1.0.6
   shared_preferences: ^2.2.2
   intl: ^0.19.0
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

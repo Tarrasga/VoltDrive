@@ -53,6 +53,7 @@ jobs:
           cp -f native_custom/OverlayManager.kt android/app/src/main/kotlin/com/voltdrive/app/OverlayManager.kt
           cp -f native_custom/VoltAccessibilityService.kt android/app/src/main/kotlin/com/voltdrive/app/VoltAccessibilityService.kt
           cp -f native_custom/accessibility_service_config.xml android/app/src/main/res/xml/accessibility_service_config.xml
+          cp -f native_custom/file_paths.xml android/app/src/main/res/xml/file_paths.xml
           cp -f native_custom/strings.xml android/app/src/main/res/values/strings.xml
 
           # Configurar os ícones do Renault Zoe
@@ -91,18 +92,28 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.24
-          name: VoltDrive v1.0.24 (Calendário de Lucros Diários, Semanais e Mensais)
+          tag_name: v1.0.25
+          name: VoltDrive v1.0.25 (Metas TVDE, Login com Email & Atualizador Automático)
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.24 - Calendário Financeiro TVDE (Renault Zoe Edition)
+            ## ⚡ VoltDrive v1.0.25 - Metas TVDE, Proteção com Email & Atualização Direta
 
-            ### 📅 Novidades desta versão:
-            1. **Calendário Mensal Visual**: Vista interativa com lucro líquido limpo em cada dia trabalhado e dias de descanso.
-            2. **Análise Semanal & Controlo das 50h TVDE**: Lucros da semana, médias diárias/hora e barra de controlo do limite legal de 50 horas semanais.
-            3. **Fecho e Detalhe Diário**: Detalhe da Uber, Bolt, Gorjetas, custo do carregamento elétrico do Zoe, portagens e rentabilidade real (€/km e €/h).
-            4. **Registo Rápido de Turno**: Formulário intuitivo para fechar o dia em 30 segundos com cálculo instantâneo do que fica na conta.
+            ### 🚀 Novidades desta versão:
+            1. **🎯 Menu de Metas Semanais & Mensais**:
+               - Define metas de Lucro Líquido Real ou Faturação Bruta (Uber + Bolt).
+               - **Cálculo Automático Diário**: Divide automaticamente o valor que falta atingir pelo número de dias restantes até ao fecho do mês (ex: faltam 450€ em 5 dias = meta de 90€/dia).
+               - Suporte para folgas planeadas (5, 6 ou 7 dias de trabalho).
+               - Cartão de ritmo diário integrado no Calendário de Lucros (Mês e Semana).
+            2. **🔐 Login com Palavra-passe Ligado ao Email**:
+               - Proteção completa por palavra-passe encriptada (SHA-256 com salt) para salvaguardar ganhos, despesas e localização do motorista.
+               - Recuperação de palavra-passe associada ao email do condutor com código de 6 dígitos.
+               - Opção de bloqueio imediato e gestão simples nas Definições.
+            3. **⚡ Atualização Automática Direta no Telemóvel**:
+               - Clica em "Atualizar Agora" e o VoltDrive descarrega a atualização dentro da própria app com barra de progresso em tempo real.
+               - Lança automaticamente o instalador de pacotes do Android (sem necessidade de abrir o Chrome ou procurar ficheiros nos downloads).
+            4. **🚗 Renault Zoe Z.E. 50 R110 Integrado**:
+               - Métricas de 18.6 kWh/100km e carregamentos AC 22kW calibrados.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -93,6 +93,39 @@ class AssistantService {
     }
   }
 
+  static Future<String?> getCacheDir() async {
+    try {
+      final res = await _channel.invokeMethod<String>('getCacheDir');
+      return res;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<bool> canRequestPackageInstalls() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('canRequestPackageInstalls');
+      return res ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  static Future<void> requestInstallPackagesPermission() async {
+    try {
+      await _channel.invokeMethod('requestInstallPackagesPermission');
+    } catch (_) {}
+  }
+
+  static Future<bool> installApk(String filePath) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('installApk', {'filePath': filePath});
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<void> hideOverlay() async {
     try {
       await _channel.invokeMethod('hideOverlay');

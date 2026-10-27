@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'screens/auth_lock_screen.dart';
 import 'screens/home_navigation_screen.dart';
+import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -22,19 +24,47 @@ void main() async {
     ),
   );
 
+  // Inicializar serviço de autenticação e proteção de dados
+  await AuthService.init();
+
   runApp(const VoltDriveApp());
 }
 
-class VoltDriveApp extends StatelessWidget {
+class VoltDriveApp extends StatefulWidget {
   const VoltDriveApp({super.key});
 
   @override
+  State<VoltDriveApp> createState() => _VoltDriveAppState();
+}
+
+class _VoltDriveAppState extends State<VoltDriveApp> {
+  @override
+  void initState() {
+    super.initState();
+    AuthService.authStateNotifier.addListener(_onAuthStateChanged);
+  }
+
+  @override
+  void dispose() {
+    AuthService.authStateNotifier.removeListener(_onAuthStateChanged);
+    super.dispose();
+  }
+
+  void _onAuthStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final showLock = AuthService.isLockEnabled && !AuthService.isUnlocked;
+
     return MaterialApp(
       title: 'VoltDrive - TVDE VE',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const HomeNavigationScreen(),
+      home: showLock
+          ? AuthLockScreen(onUnlocked: () => setState(() {}))
+          : const HomeNavigationScreen(),
     );
   }
 }

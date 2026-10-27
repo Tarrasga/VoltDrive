@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/vehicle_profile.dart';
+import '../models/financial_goals.dart';
 import '../services/assistant_service.dart';
+import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
+import 'financial_goals_screen.dart';
 import 'safety_buddies_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -302,6 +305,100 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 18),
 
+            // METAS & RITMO DIÁRIO TVDE
+            Card(
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentGreen.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.track_changes_rounded, color: AppTheme.accentGreen),
+                ),
+                title: const Text('Metas Semanais & Mensais', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Calcula a meta diária necessária dividindo pelos dias que faltam para fechar o mês', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textMuted),
+                onTap: () {
+                  FinancialGoalsScreen.showAsModal(context);
+                },
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // PROTEÇÃO DA APLICAÇÃO (LOGIN COM PASS LIGADO AO EMAIL)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryElectric.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.lock_outline_rounded, color: AppTheme.primaryElectric, size: 20),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('Bloqueio & Palavra-passe', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ],
+                        ),
+                        Switch(
+                          value: AuthService.isLockEnabled,
+                          activeColor: AppTheme.accentGreen,
+                          onChanged: (val) => _handleLockToggle(val),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      AuthService.hasCredentials
+                          ? 'Email associado: ${AuthService.userEmail}'
+                          : 'Configura o teu email e palavra-passe para proteger os teus dados de lucros e viagens.',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _showAuthSetupDialog,
+                            icon: const Icon(Icons.password, size: 16, color: AppTheme.primaryElectric),
+                            label: Text(
+                              AuthService.hasCredentials ? 'Alterar Acesso' : 'Configurar Acesso',
+                              style: const TextStyle(color: AppTheme.primaryElectric, fontSize: 12),
+                            ),
+                            style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.darkBorder)),
+                          ),
+                        ),
+                        if (AuthService.isLockEnabled && AuthService.hasCredentials) ...[
+                          const SizedBox(width: 10),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              AuthService.lockApp();
+                            },
+                            icon: const Icon(Icons.lock_clock, size: 16, color: Colors.black),
+                            label: const Text('Bloquear Agora', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warningAmber),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
             // REDE DE SEGURANÇA E COLEGAS
             Card(
               child: ListTile(
@@ -385,6 +482,195 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleLockToggle(bool enable) async {
+    if (!AuthService.hasCredentials) {
+      _showAuthSetupDialog();
+      return;
+    }
+
+    if (!enable) {
+      // Pedir confirmação da palavra-passe antes de desativar
+      final passController = TextEditingController();
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          backgroundColor: AppTheme.darkCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Confirmar Desativação', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Insere a tua palavra-passe atual para desativar a proteção:', style: TextStyle(fontSize: 13, color: AppTheme.textMuted)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passController,
+                obscureText: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: 'Palavra-passe'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () {
+                final ok = AuthService.verifyAndUnlock(passController.text);
+                Navigator.pop(c, ok);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerRed),
+              child: const Text('Desativar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        await AuthService.setLockEnabled(false);
+        setState(() {});
+      } else if (confirmed == false) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Palavra-passe incorreta.'), backgroundColor: AppTheme.dangerRed),
+          );
+        }
+      }
+    } else {
+      await AuthService.setLockEnabled(true);
+      setState(() {});
+    }
+  }
+
+  void _showAuthSetupDialog() {
+    final emailController = TextEditingController(text: AuthService.userEmail);
+    final passController = TextEditingController();
+    final confirmPassController = TextEditingController();
+    String? localError;
+
+    showDialog(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setDlgState) => AlertDialog(
+          backgroundColor: AppTheme.darkCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: AppTheme.primaryElectric),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_person_rounded, color: AppTheme.primaryElectric),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Segurança VoltDrive', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Define o teu email e palavra-passe para bloquear o acesso às métricas e faturamentos da app.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Email do Motorista (para recuperação)',
+                  prefixIcon: const Icon(Icons.email_outlined, color: AppTheme.primaryElectric),
+                  filled: true,
+                  fillColor: AppTheme.darkSurface,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passController,
+                obscureText: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Nova Palavra-passe',
+                  prefixIcon: const Icon(Icons.key, color: AppTheme.accentGreen),
+                  filled: true,
+                  fillColor: AppTheme.darkSurface,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmPassController,
+                obscureText: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Confirmar Palavra-passe',
+                  prefixIcon: const Icon(Icons.check, color: AppTheme.accentGreen),
+                  filled: true,
+                  fillColor: AppTheme.darkSurface,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              if (localError != null) ...[
+                const SizedBox(height: 10),
+                Text(localError!, style: const TextStyle(color: AppTheme.dangerRed, fontSize: 12)),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Cancelar', style: TextStyle(color: AppTheme.textMuted)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final email = emailController.text.trim();
+                final pass = passController.text.trim();
+                final confirm = confirmPassController.text.trim();
+
+                if (email.isEmpty || !email.contains('@')) {
+                  setDlgState(() => localError = 'Insere um endereço de email válido.');
+                  return;
+                }
+                if (pass.length < 4) {
+                  setDlgState(() => localError = 'A palavra-passe deve ter pelo menos 4 caracteres.');
+                  return;
+                }
+                if (pass != confirm) {
+                  setDlgState(() => localError = 'As palavras-passe não coincidem.');
+                  return;
+                }
+
+                final ok = await AuthService.setupCredentials(
+                  email: email,
+                  password: pass,
+                  enableLock: true,
+                );
+
+                if (ok) {
+                  if (c.mounted) Navigator.pop(c);
+                  setState(() {});
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('🔒 Proteção por palavra-passe configurada e ativada!'),
+                        backgroundColor: AppTheme.accentGreen,
+                      ),
+                    );
+                  }
+                } else {
+                  setDlgState(() => localError = 'Erro ao guardar credenciais.');
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen),
+              child: const Text('Guardar e Ativar', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
       ),

@@ -3,12 +3,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/vehicle_profile.dart';
 import '../models/daily_shift.dart';
 import '../models/driving_session.dart';
+import '../models/financial_goals.dart';
 
 class StorageService {
   static const String _keyVehicleProfile = 'voltdrive_vehicle_profile';
   static const String _keyShifts = 'voltdrive_shifts';
+  static const String _keyFinancialGoals = 'voltdrive_financial_goals';
   static const String _keyCurrentDrivingSession = 'voltdrive_current_driving_session';
   static const String _keyDrivingHistory = 'voltdrive_driving_history';
+
+  // Carregar metas financeiras
+  static Future<FinancialGoals> loadFinancialGoals() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(_keyFinancialGoals);
+      if (jsonString != null && jsonString.isNotEmpty) {
+        final Map<String, dynamic> map = jsonDecode(jsonString);
+        return FinancialGoals.fromJson(map);
+      }
+    } catch (_) {}
+    return FinancialGoals();
+  }
+
+  // Guardar metas financeiras
+  static Future<bool> saveFinancialGoals(FinancialGoals goals) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = jsonEncode(goals.toJson());
+    return await prefs.setString(_keyFinancialGoals, jsonString);
+  }
 
   // Carregar perfil do veículo
   static Future<VehicleProfile> loadVehicleProfile() async {

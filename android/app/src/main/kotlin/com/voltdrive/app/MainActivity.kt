@@ -206,6 +206,70 @@ class MainActivity: FlutterActivity() {
                         result.error("WHATSAPP_FAILED", e.message, null)
                     }
                 }
+                "getCacheDir" -> {
+                    try {
+                        result.success(context.cacheDir.absolutePath)
+                    } catch (e: Exception) {
+                        result.error("CACHE_DIR_FAILED", e.message, null)
+                    }
+                }
+                "canRequestPackageInstalls" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        result.success(packageManager.canRequestPackageInstalls())
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "requestInstallPackagesPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        try {
+                            val reqIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                data = Uri.parse("package:$packageName")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(reqIntent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("REQ_PERMISSION_FAILED", e.message, null)
+                        }
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "installApk" -> {
+                    val filePath = call.argument<String>("filePath") ?: ""
+                    val file = java.io.File(filePath)
+                    if (file.exists()) {
+                        try {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                if (!packageManager.canRequestPackageInstalls()) {
+                                    val reqIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                        data = Uri.parse("package:$packageName")
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    startActivity(reqIntent)
+                                }
+                            }
+
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                this@MainActivity,
+                                "$packageName.fileprovider",
+                                file
+                            )
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, "application/vnd.android.package-archive")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("INSTALL_FAILED", e.message, null)
+                        }
+                    } else {
+                        result.error("FILE_NOT_FOUND", "Ficheiro APK não encontrado: $filePath", null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
