@@ -136,6 +136,17 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
     setState(() {});
   }
 
+  void _onDistanceChanged() {
+    final rate = double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0;
+    final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final trip = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final total = pickup + trip;
+    if (rate > 0 && total > 0) {
+      _fareController.text = (total * rate).toStringAsFixed(2);
+    }
+    setState(() {});
+  }
+
   void _adjustFare(double delta) {
     final current = double.tryParse(_fareController.text.replaceAll(',', '.')) ?? 0.0;
     final next = (current + delta).clamp(0.0, 999.0);
