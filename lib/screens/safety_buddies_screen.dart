@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/buddy_member.dart';
+import '../models/emergency_contact.dart';
 import '../services/assistant_service.dart';
 import '../services/buddy_safety_service.dart';
 import '../theme/app_theme.dart';
@@ -100,15 +101,27 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
       loc ??= await AssistantService.getCurrentLocation();
       loc ??= LocationResult(latitude: 38.65, longitude: -9.15, accuracy: 50, speed: 0);
 
-      await BuddySafetyService.sendSosAlert(loc);
+      final ok = await BuddySafetyService.sendSosAlert(loc);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🚨 Alerta SOS enviado para a rede de colegas!'),
-            backgroundColor: AppTheme.dangerRed,
-          ),
-        );
+        if (ok) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🚨 Alerta SOS enviado com sucesso para a equipa "${BuddySafetyService.teamCode}"!'),
+              backgroundColor: AppTheme.dangerRed,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Não foi possível ligar à rede. A abrir WhatsApp/SMS de emergência...'),
+              backgroundColor: AppTheme.warningAmber,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          _shareViaWhatsAppOrSms();
+        }
       }
     }
   }
@@ -120,37 +133,236 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppTheme.darkCard,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Partilhar Alerta SOS Rápido', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(ctx);
-                AssistantService.shareWhatsApp(phone: BuddySafetyService.emergencyPhone, message: text);
-              },
-              icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-              label: const Text('Enviar por WhatsApp'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final contacts = BuddySafetyService.emergencyContacts;
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
             ),
-            const SizedBox(height: 10),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(ctx);
-                AssistantService.sendEmergencySms(phone: BuddySafetyService.emergencyPhone, message: text);
-              },
-              icon: const Icon(Icons.sms_outlined, color: Colors.white),
-              label: const Text('Enviar por SMS'),
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryElectric),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRed, size: 24),
+                          SizedBox(width: 8),
+                          Text('Partilhar SOS Imediato', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppTheme.textMuted),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Escolhe um contacto ou envia para um Grupo de WhatsApp com 1 toque:',
+                    style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Botão Geral: Enviar para Grupo ou Escolher na Lista do WhatsApp
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      AssistantService.shareWhatsApp(phone: '', message: text);
+                    },
+                    icon: const Icon(Icons.groups_outlined, color: Colors.white, size: 20),
+                    label: const Text(
+                      'Abrir WhatsApp (Grupo TVDE ou Escolher Contacto)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+                  const Divider(color: AppTheme.darkBorder),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'CONTACTOS RÁPIDOS:',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryElectric, letterSpacing: 0.5),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _showAddContactDialog(onAdded: () => setSheetState(() {})),
+                        icon: const Icon(Icons.add, size: 16, color: AppTheme.accentGreen),
+                        label: const Text('Adicionar Número', style: TextStyle(fontSize: 12, color: AppTheme.accentGreen, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+
+                  if (contacts.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.darkSurface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.darkBorder),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Ainda não guardaste contactos rápidos.',
+                            style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: () => _showAddContactDialog(onAdded: () => setSheetState(() {})),
+                            icon: const Icon(Icons.person_add_alt_1, size: 16, color: Colors.black),
+                            label: const Text('Adicionar Colega / Central', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryElectric),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...contacts.map((contact) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.darkSurface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.darkBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: AppTheme.primaryElectric.withOpacity(0.2),
+                            child: Text(
+                              contact.name.isNotEmpty ? contact.name[0].toUpperCase() : 'C',
+                              style: const TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(contact.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                                Text(contact.phone, style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          // Botão WhatsApp Rápido
+                          IconButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              AssistantService.shareWhatsApp(phone: contact.phone, message: text);
+                            },
+                            icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF25D366), size: 22),
+                            tooltip: 'Enviar WhatsApp',
+                          ),
+                          // Botão SMS Rápido
+                          IconButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              AssistantService.sendEmergencySms(phone: contact.phone, message: text);
+                            },
+                            icon: const Icon(Icons.sms_outlined, color: AppTheme.primaryElectric, size: 22),
+                            tooltip: 'Enviar SMS',
+                          ),
+                          // Apagar Contacto
+                          IconButton(
+                            onPressed: () async {
+                              await BuddySafetyService.removeEmergencyContact(contact.id);
+                              setSheetState(() {});
+                            },
+                            icon: const Icon(Icons.delete_outline, color: AppTheme.textMuted, size: 18),
+                            tooltip: 'Remover',
+                          ),
+                        ],
+                      ),
+                    )),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAddContactDialog({VoidCallback? onAdded}) {
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.person_add_alt_1, color: AppTheme.accentGreen, size: 22),
+            SizedBox(width: 8),
+            Text('Novo Contacto de SOS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nome do Colega / Empresa',
+                hintText: 'Ex: João TVDE, Central, Miguel',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Número de Telemóvel',
+                hintText: 'Ex: 912345678',
+              ),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dlgCtx),
+            child: const Text('Cancelar', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              final phone = phoneCtrl.text.trim();
+              if (phone.isNotEmpty) {
+                await BuddySafetyService.addEmergencyContact(name, phone);
+                if (mounted) Navigator.pop(dlgCtx);
+                onAdded?.call();
+                setState(() {});
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen),
+            child: const Text('Guardar', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
@@ -584,10 +796,22 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
           ),
           const SizedBox(height: 12),
           if (list.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
-                child: Text('Nenhum colega ativo no canal agora.', style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+                child: Column(
+                  children: [
+                    const Icon(Icons.people_outline, color: AppTheme.textMuted, size: 36),
+                    const SizedBox(height: 8),
+                    const Text('Nenhum colega ligado neste canal.', style: TextStyle(color: AppTheme.textMuted, fontSize: 13, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Partilha o código "${BuddySafetyService.teamCode}" com outros motoristas para se verem aqui no radar!',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                    ),
+                  ],
+                ),
               ),
             )
           else
@@ -651,25 +875,6 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
                 );
               },
             ),
-          const SizedBox(height: 12),
-          // Botão de Teste para o condutor simular
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                BuddySafetyService.simulateIncomingSosFromColleague();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('⚡ A simular receção de SOS de um colega da equipa!'),
-                    backgroundColor: AppTheme.warningAmber,
-                  ),
-                );
-              },
-              icon: const Icon(Icons.bug_report_outlined, size: 16, color: AppTheme.warningAmber),
-              label: const Text('Testar Receção de SOS de Colega', style: TextStyle(fontSize: 12, color: AppTheme.warningAmber)),
-              style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.darkBorder)),
-            ),
-          ),
         ],
       ),
     );

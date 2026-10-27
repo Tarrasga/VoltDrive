@@ -91,24 +91,18 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.21
-          name: VoltDrive v1.0.21 (Leitor Bolt e Janela Flutuante Ativados)
+          tag_name: v1.0.22
+          name: VoltDrive v1.0.22 (SOS Instantâneo, Seleção WhatsApp e Sem Bots)
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.21 - Leitor Bolt/Uber e Janela Flutuante Ativados
+            ## ⚡ VoltDrive v1.0.22 - SOS Direto, Contactos WhatsApp e Sem Bots
 
-            Esta versão ativa o leitor automático de viagens da **Bolt** e **Uber** e a **Janela Flutuante** de cálculo do Renault Zoe!
-
-            ### 📱 Como instalar no teu Samsung:
-            1. Toca em **`VoltDrive.apk`** em **Assets** abaixo para descarregar.
-            2. Se o Google Play Protect avisar "App bloqueada para proteger o dispositivo":
-               - Toca em **"Mais detalhes"** ➔ **"Instalar mesmo assim"**.
-               *(Ou desativa temporariamente a verificação na Google Play Store durante a instalação)*.
-            3. Na app VoltDrive, no separador **Calculadora**:
-               - Toca em **"1. Ativar Janela"** ➔ Procura VoltDrive e liga "Aparecer em cima".
-               - Toca em **"2. Ativar Leitor"** ➔ Aplicações Instaladas ➔ Liga "VoltDrive - Leitor TVDE".
-               *(Se disser Definição restrita: Definições ➔ Aplicações ➔ VoltDrive ➔ 3 pontinhos ⋮ ➔ Permitir definições restritas)*.
+            ### 🚨 Melhorias desta versão:
+            1. **Alertas SOS 100% Funcionais**: Envio imediato pela rede ntfy.sh com localização exata e link para o Google Maps.
+            2. **Escolha de Números no WhatsApp**: Envia a localização e pedido de socorro com 1 toque para qualquer colega guardado ou abre o seletor de Grupos do WhatsApp.
+            3. **Eliminação dos Bots**: Removidos todos os colegas simulados/falsos. Agora o radar só mostra motoristas reais ligados ao mesmo canal.
+            4. **Formatação Automática de Números**: Suporte automático para indicativo português (+351) nos números de 9 dígitos.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

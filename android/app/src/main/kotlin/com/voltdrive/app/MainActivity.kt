@@ -182,12 +182,18 @@ class MainActivity: FlutterActivity() {
                     }
                 }
                 "shareWhatsApp" -> {
-                    val phone = call.argument<String>("phone") ?: ""
+                    val rawPhone = call.argument<String>("phone") ?: ""
                     val message = call.argument<String>("message") ?: ""
                     try {
                         val encoded = Uri.encode(message)
-                        val url = if (phone.isNotEmpty()) {
-                            "https://api.whatsapp.com/send?phone=$phone&text=$encoded"
+                        val cleanDigits = rawPhone.replace(Regex("[^0-9]"), "")
+                        val finalPhone = if (cleanDigits.length == 9 && (cleanDigits.startsWith("9") || cleanDigits.startsWith("2"))) {
+                            "351$cleanDigits"
+                        } else {
+                            cleanDigits
+                        }
+                        val url = if (finalPhone.isNotEmpty()) {
+                            "https://api.whatsapp.com/send?phone=$finalPhone&text=$encoded"
                         } else {
                             "https://api.whatsapp.com/send?text=$encoded"
                         }
