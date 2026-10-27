@@ -522,6 +522,12 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () async {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('A abrir menu do Android: ativa a sobreposição para o VoltDrive.'),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
                     await AssistantService.requestOverlayPermission();
                     _checkAssistantPermissions();
                   },
@@ -550,6 +556,12 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () async {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('A abrir Acessibilidade: procura "VoltDrive - Leitor TVDE" e ativa.'),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
                     await AssistantService.requestAccessibilityPermission();
                     _checkAssistantPermissions();
                   },
@@ -577,7 +589,21 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
             ],
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
+
+          // Link de Ajuda para Definições Restritas / Xiaomi / Samsung
+          Center(
+            child: TextButton.icon(
+              onPressed: _showPermissionHelpDialog,
+              icon: const Icon(Icons.help_outline, size: 14, color: AppTheme.primaryElectric),
+              label: const Text(
+                'Ajuda: o menu não abre ou diz "Definição restrita"?',
+                style: TextStyle(fontSize: 11, color: AppTheme.primaryElectric),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 6),
 
           // Botão de Teste da Bolha Flutuante
           SizedBox(
@@ -585,12 +611,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
             child: ElevatedButton.icon(
               onPressed: () async {
                 if (!_overlayGranted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Ativa primeiro a permissão da Janela Flutuante (botão 1).'),
-                      backgroundColor: AppTheme.warningAmber,
-                    ),
-                  );
+                  _showSimulatedFloatingOfferDialog();
                   await AssistantService.requestOverlayPermission();
                   return;
                 }
@@ -619,6 +640,147 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
         ],
       ),
     );
+  }
+
+  void _showPermissionHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: AppTheme.primaryElectric, size: 24),
+            SizedBox(width: 8),
+            Text('Ativar no teu Telemóvel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'No Android (especialmente Xiaomi, Samsung ou Android 13/14), podes ativar as permissões diretamente na página da app:',
+              style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            ),
+            const SizedBox(height: 12),
+            const Text('1. Clica no botão abaixo para abrir as Definições do VoltDrive.', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+            const SizedBox(height: 6),
+            const Text('2. Se vires 3 pontinhos (⋮) no canto superior direito, toca neles e escolhe "Permitir definições restritas".', style: TextStyle(fontSize: 12, color: AppTheme.warningAmber)),
+            const SizedBox(height: 6),
+            const Text('3. Procura "Aparecer sobre outras aplicações" e ativa.', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fechar', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await AssistantService.openAppSettings();
+            },
+            icon: const Icon(Icons.settings, color: Colors.black, size: 16),
+            label: const Text('Abrir Definições do VoltDrive', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryElectric),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSimulatedFloatingOfferDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF171B26),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppTheme.warningAmber, width: 2),
+            boxShadow: const [
+              BoxShadow(color: Colors.black87, blurRadius: 20, offset: Offset(0, 8)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(color: const Color(0xFF00D665), borderRadius: BorderRadius.circular(6)),
+                        child: const Text('BOLT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text('⚡ VoltDrive • Renault Zoe', style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12)),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 18),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('+6.00 €', style: const TextStyle(color: AppTheme.warningAmber, fontSize: 28, fontWeight: FontWeight.bold)),
+                      const Text('LUCRO LÍQUIDO LIMPO', style: TextStyle(color: Color(0xFF64748B), fontSize: 10, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('0.65 €/km', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: AppTheme.warningAmber, borderRadius: BorderRadius.circular(6)),
+                        child: const Text('ACEITÁVEL', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const Divider(color: Color(0xFF2E384D), height: 20),
+              const Text('Bruto: 8.50 €  |  Distância: 9.2 km  |  Custo Zoe: -0.38 €', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Dispensar', style: TextStyle(color: AppTheme.textMuted)),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      await AssistantService.openAppSettings();
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryElectric),
+                    child: const Text('Ativar Definições', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
   }
 
   Widget _buildMetricColumn({

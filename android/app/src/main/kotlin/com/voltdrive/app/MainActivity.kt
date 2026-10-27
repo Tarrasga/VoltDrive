@@ -31,27 +31,77 @@ class MainActivity: FlutterActivity() {
                     result.success(OverlayManager.canDrawOverlays(context))
                 }
                 "requestOverlayPermission" -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
-                        val intent = Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:$packageName")
-                        ).apply {
+                    var launched = false
+                    // 1. Try with Uri.parse("package:$packageName")
+                    try {
+                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                            data = Uri.parse("package:$packageName")
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
-                        startActivity(intent)
+                        context.startActivity(intent)
+                        launched = true
+                    } catch (e: Exception) {}
+
+                    // 2. Try generic ACTION_MANAGE_OVERLAY_PERMISSION (Universal on all Android)
+                    if (!launched) {
+                        try {
+                            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                            launched = true
+                        } catch (e: Exception) {}
                     }
-                    result.success(true)
+
+                    // 3. Fallback: App Details Settings
+                    if (!launched) {
+                        try {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", packageName, null)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                            launched = true
+                        } catch (e: Exception) {}
+                    }
+                    result.success(launched)
                 }
                 "isAccessibilityEnabled" -> {
                     val isRunning = VoltAccessibilityService.isServiceRunning || isAccessibilitySettingsEnabled()
                     result.success(isRunning)
                 }
                 "requestAccessibilityPermission" -> {
-                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    var launched = false
+                    try {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                        launched = true
+                    } catch (e: Exception) {}
+
+                    if (!launched) {
+                        try {
+                            val intent = Intent(Settings.ACTION_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                            launched = true
+                        } catch (e: Exception) {}
                     }
-                    startActivity(intent)
-                    result.success(true)
+                    result.success(launched)
+                }
+                "openAppSettings" -> {
+                    try {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", packageName, null)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("FAILED", e.message, null)
+                    }
                 }
                 "showTestOffer" -> {
                     OverlayManager.showTestOffer(context)

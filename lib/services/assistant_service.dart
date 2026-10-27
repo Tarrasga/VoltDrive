@@ -29,10 +29,18 @@ class AssistantService {
     }
   }
 
-  static Future<void> requestOverlayPermission() async {
+  static Future<bool> requestOverlayPermission() async {
     try {
-      await _channel.invokeMethod('requestOverlayPermission');
-    } catch (_) {}
+      final res = await _channel.invokeMethod<bool>('requestOverlayPermission');
+      return res ?? false;
+    } catch (_) {
+      try {
+        await _channel.invokeMethod('openAppSettings');
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
   }
 
   static Future<bool> isAccessibilityEnabled() async {
@@ -44,9 +52,23 @@ class AssistantService {
     }
   }
 
-  static Future<void> requestAccessibilityPermission() async {
+  static Future<bool> requestAccessibilityPermission() async {
     try {
-      await _channel.invokeMethod('requestAccessibilityPermission');
+      final res = await _channel.invokeMethod<bool>('requestAccessibilityPermission');
+      return res ?? false;
+    } catch (_) {
+      try {
+        await _channel.invokeMethod('openAppSettings');
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
+  static Future<void> openAppSettings() async {
+    try {
+      await _channel.invokeMethod('openAppSettings');
     } catch (_) {}
   }
 
