@@ -610,19 +610,21 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () async {
-                if (!_overlayGranted) {
-                  _showSimulatedFloatingOfferDialog();
-                  await AssistantService.requestOverlayPermission();
-                  return;
+                final granted = await AssistantService.isOverlayGranted();
+                if (granted) {
+                  final shown = await AssistantService.showTestOffer();
+                  if (shown && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('⚡ Janela flutuante apresentada no topo do ecrã!'),
+                        backgroundColor: AppTheme.accentGreen,
+                      ),
+                    );
+                    return;
+                  }
                 }
-                await AssistantService.showTestOffer();
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('⚡ A simular viagem da Bolt com janela flutuante!'),
-                      backgroundColor: AppTheme.accentGreen,
-                    ),
-                  );
+                  _showSimulatedFloatingOfferDialog();
                 }
               },
               icon: const Icon(Icons.play_circle_outline, color: Colors.black, size: 18),
@@ -650,40 +652,94 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: const Row(
           children: [
-            Icon(Icons.info_outline, color: AppTheme.primaryElectric, size: 24),
+            Icon(Icons.verified_user_outlined, color: AppTheme.primaryElectric, size: 24),
             SizedBox(width: 8),
-            Text('Ativar no teu Telemóvel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('Ativar Assistente TVDE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'No Android (especialmente Xiaomi, Samsung ou Android 13/14), podes ativar as permissões diretamente na página da app:',
-              style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-            ),
-            const SizedBox(height: 12),
-            const Text('1. Clica no botão abaixo para abrir as Definições do VoltDrive.', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-            const SizedBox(height: 6),
-            const Text('2. Se vires 3 pontinhos (⋮) no canto superior direito, toca neles e escolhe "Permitir definições restritas".', style: TextStyle(fontSize: 12, color: AppTheme.warningAmber)),
-            const SizedBox(height: 6),
-            const Text('3. Procura "Aparecer sobre outras aplicações" e ativa.', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Para o assistente ler a Bolt/Uber e desenhar o lucro no ecrã:',
+                style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkSurface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.darkBorder),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('1️⃣ Janela Flutuante ("Aparecer em cima"):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryElectric)),
+                    SizedBox(height: 4),
+                    Text('Toca em "1. Ativar Janela", procura VoltDrive e liga o interruptor.', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkSurface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.darkBorder),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('2️⃣ Leitor de Viagens Bolt / Uber:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.accentGreen)),
+                    SizedBox(height: 4),
+                    Text('Toca em "2. Ativar Leitor" ➔ Aplicações Instaladas ➔ ativa "VoltDrive - Leitor TVDE".', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.warningAmber.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.warningAmber.withOpacity(0.4)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('⚠️ Diz "Definição restrita" no Samsung / Android 14?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.warningAmber)),
+                    SizedBox(height: 4),
+                    Text('1. Clica no botão "Abrir Definições do VoltDrive" abaixo.\n2. Toca nos 3 pontinhos (⋮) no canto superior direito.\n3. Escolhe "Permitir definições restritas".\n4. Volta aqui e já podes ativar o Leitor!', style: TextStyle(fontSize: 11, color: AppTheme.textPrimary, height: 1.3)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Fechar', style: TextStyle(color: AppTheme.textMuted)),
           ),
-          ElevatedButton.icon(
+          OutlinedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await AssistantService.requestAccessibilityPermission();
+            },
+            style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.accentGreen)),
+            child: const Text('Acessibilidade', style: TextStyle(color: AppTheme.accentGreen)),
+          ),
+          ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
               await AssistantService.openAppSettings();
             },
-            icon: const Icon(Icons.settings, color: Colors.black, size: 16),
-            label: const Text('Abrir Definições do VoltDrive', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryElectric),
+            child: const Text('Definições VoltDrive', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -701,7 +757,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
           decoration: BoxDecoration(
             color: const Color(0xFF171B26),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppTheme.warningAmber, width: 2),
+            border: Border.all(color: AppTheme.accentGreen, width: 2),
             boxShadow: const [
               BoxShadow(color: Colors.black87, blurRadius: 20, offset: Offset(0, 8)),
             ],
@@ -734,11 +790,11 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('+6.00 €', style: const TextStyle(color: AppTheme.warningAmber, fontSize: 28, fontWeight: FontWeight.bold)),
-                      const Text('LUCRO LÍQUIDO LIMPO', style: TextStyle(color: Color(0xFF64748B), fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text('+6.00 €', style: TextStyle(color: AppTheme.accentGreen, fontSize: 28, fontWeight: FontWeight.bold)),
+                      Text('LUCRO LÍQUIDO LIMPO', style: TextStyle(color: Color(0xFF64748B), fontSize: 10, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Column(
@@ -747,8 +803,8 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                       const Text('0.65 €/km', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: AppTheme.warningAmber, borderRadius: BorderRadius.circular(6)),
-                        child: const Text('ACEITÁVEL', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
+                        decoration: BoxDecoration(color: AppTheme.accentGreen, borderRadius: BorderRadius.circular(6)),
+                        child: const Text('BOM NEGÓCIO', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
                       ),
                     ],
                   ),
@@ -756,6 +812,11 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
               ),
               const Divider(color: Color(0xFF2E384D), height: 20),
               const Text('Bruto: 8.50 €  |  Distância: 9.2 km  |  Custo Zoe: -0.38 €', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+              const SizedBox(height: 12),
+              const Text(
+                '💡 É exatamente assim que a janela surge sobre a Bolt Driver quando recebes uma corrida!',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
+              ),
               const SizedBox(height: 14),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -768,10 +829,10 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                   ElevatedButton(
                     onPressed: () async {
                       Navigator.pop(ctx);
-                      await AssistantService.openAppSettings();
+                      await AssistantService.requestOverlayPermission();
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryElectric),
-                    child: const Text('Ativar Definições', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen),
+                    child: const Text('Ativar Janela no Ecrã', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

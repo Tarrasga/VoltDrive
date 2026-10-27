@@ -128,8 +128,8 @@ class MainActivity: FlutterActivity() {
                     result.success(true)
                 }
                 "showTestOffer" -> {
-                    OverlayManager.showTestOffer(context)
-                    result.success(true)
+                    val shown = OverlayManager.showTestOffer(applicationContext)
+                    result.success(shown)
                 }
                 "hideOverlay" -> {
                     OverlayManager.hideOverlay()

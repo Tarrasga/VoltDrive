@@ -41,18 +41,26 @@ object OverlayManager {
         }
     }
 
-    fun hideOverlay() {
-        handler.post {
-            autoDismissRunnable?.let { handler.removeCallbacks(it) }
-            autoDismissRunnable = null
+    private fun removeCurrentViewInternal() {
+        autoDismissRunnable?.let { handler.removeCallbacks(it) }
+        autoDismissRunnable = null
 
-            if (currentView != null && windowManager != null) {
-                try {
-                    windowManager?.removeView(currentView)
-                } catch (e: Exception) {
-                }
-                currentView = null
+        if (currentView != null && windowManager != null) {
+            try {
+                windowManager?.removeView(currentView)
+                android.util.Log.d("VoltDrive", "Overlay view removed successfully.")
+            } catch (e: Exception) {
+                android.util.Log.e("VoltDrive", "Failed to remove overlay view: ${e.message}")
             }
+            currentView = null
+        }
+    }
+
+    fun hideOverlay() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            removeCurrentViewInternal()
+        } else {
+            handler.post { removeCurrentViewInternal() }
         }
     }
 
@@ -66,13 +74,17 @@ object OverlayManager {
         verdictText: String,
         verdictColor: Int,
         electricCost: Double
-    ) {
-        if (!canDrawOverlays(context)) return
+    ): Boolean {
+        val appContext = context.applicationContext ?: context
+        if (!canDrawOverlays(appContext)) {
+            android.util.Log.w("VoltDrive", "Cannot draw overlays: permission not granted!")
+            return false
+        }
 
         handler.post {
-            hideOverlay()
+            removeCurrentViewInternal()
 
-            val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return@post
+            val wm = appContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return@post
             windowManager = wm
 
             val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -92,49 +104,49 @@ object OverlayManager {
                 android.graphics.PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                y = dpToPx(context, 48f)
+                y = dpToPx(appContext, 48f)
             }
 
             // Outer Container with touch/drag support
-            val root = FrameLayout(context).apply {
-                setPadding(dpToPx(context, 16f), dpToPx(context, 8f), dpToPx(context, 16f), dpToPx(context, 8f))
+            val root = FrameLayout(appContext).apply {
+                setPadding(dpToPx(appContext, 16f), dpToPx(appContext, 8f), dpToPx(appContext, 16f), dpToPx(appContext, 8f))
             }
 
             // Card Container (Dark OLED styled card with colored border)
-            val card = LinearLayout(context).apply {
+            val card = LinearLayout(appContext).apply {
                 orientation = LinearLayout.VERTICAL
                 val bg = GradientDrawable().apply {
                     setColor(Color.parseColor("#171B26")) // Dark background
-                    cornerRadius = dpToPx(context, 18f).toFloat()
-                    setStroke(dpToPx(context, 2f), verdictColor)
+                    cornerRadius = dpToPx(appContext, 18f).toFloat()
+                    setStroke(dpToPx(appContext, 2f), verdictColor)
                 }
                 background = bg
-                setPadding(dpToPx(context, 16f), dpToPx(context, 14f), dpToPx(context, 16f), dpToPx(context, 14f))
+                setPadding(dpToPx(appContext, 16f), dpToPx(appContext, 14f), dpToPx(appContext, 16f), dpToPx(appContext, 14f))
             }
 
             // Header Row: Platform Badge + Title + Close Button
-            val headerRow = LinearLayout(context).apply {
+            val headerRow = LinearLayout(appContext).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
             }
 
             // Platform chip (Uber = Black/White, Bolt = Green)
             val isBolt = platform.uppercase(Locale.ROOT).contains("BOLT")
-            val platformChip = TextView(context).apply {
+            val platformChip = TextView(appContext).apply {
                 text = if (isBolt) " BOLT " else " UBER "
                 textSize = 11f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(if (isBolt) Color.BLACK else Color.WHITE)
                 val chipBg = GradientDrawable().apply {
                     setColor(if (isBolt) Color.parseColor("#00D665") else Color.parseColor("#000000"))
-                    cornerRadius = dpToPx(context, 6f).toFloat()
-                    if (!isBolt) setStroke(dpToPx(context, 1f), Color.WHITE)
+                    cornerRadius = dpToPx(appContext, 6f).toFloat()
+                    if (!isBolt) setStroke(dpToPx(appContext, 1f), Color.WHITE)
                 }
                 background = chipBg
-                setPadding(dpToPx(context, 6f), dpToPx(context, 2f), dpToPx(context, 6f), dpToPx(context, 2f))
+                setPadding(dpToPx(appContext, 6f), dpToPx(appContext, 2f), dpToPx(appContext, 6f), dpToPx(appContext, 2f))
             }
 
-            val appTitle = TextView(context).apply {
+            val appTitle = TextView(appContext).apply {
                 text = "  ⚡ VoltDrive  •  Renault Zoe"
                 textSize = 12f
                 typeface = Typeface.DEFAULT_BOLD
@@ -142,12 +154,12 @@ object OverlayManager {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
             }
 
-            val closeBtn = TextView(context).apply {
+            val closeBtn = TextView(appContext).apply {
                 text = "✕"
                 textSize = 16f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(Color.parseColor("#94A3B8"))
-                setPadding(dpToPx(context, 8f), 0, dpToPx(context, 4f), 0)
+                setPadding(dpToPx(appContext, 8f), 0, dpToPx(appContext, 4f), 0)
                 setOnClickListener { hideOverlay() }
             }
 
@@ -157,26 +169,26 @@ object OverlayManager {
             card.addView(headerRow)
 
             // Main Metrics Row
-            val metricsRow = LinearLayout(context).apply {
+            val metricsRow = LinearLayout(appContext).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dpToPx(context, 10f), 0, dpToPx(context, 8f))
+                setPadding(0, dpToPx(appContext, 10f), 0, dpToPx(appContext, 8f))
             }
 
             // Left: Big Net Profit
-            val profitCol = LinearLayout(context).apply {
+            val profitCol = LinearLayout(appContext).apply {
                 orientation = LinearLayout.VERTICAL
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
             }
 
-            val netProfitText = TextView(context).apply {
+            val netProfitText = TextView(appContext).apply {
                 text = String.format(Locale.ROOT, "+%.2f €", netProfit)
                 textSize = 26f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(verdictColor)
             }
 
-            val netLabel = TextView(context).apply {
+            val netLabel = TextView(appContext).apply {
                 text = "LÚCRO LÍQUIDO LIMPO"
                 textSize = 10f
                 typeface = Typeface.DEFAULT_BOLD
@@ -187,29 +199,29 @@ object OverlayManager {
             profitCol.addView(netLabel)
 
             // Right: €/Km & Verdict Badge
-            val ratingCol = LinearLayout(context).apply {
+            val ratingCol = LinearLayout(appContext).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.END
             }
 
-            val perKmText = TextView(context).apply {
+            val perKmText = TextView(appContext).apply {
                 text = String.format(Locale.ROOT, "%.2f €/km", netPerKm)
                 textSize = 18f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(Color.WHITE)
             }
 
-            val verdictBadge = TextView(context).apply {
+            val verdictBadge = TextView(appContext).apply {
                 text = " $verdictText "
                 textSize = 11f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(Color.BLACK)
                 val badgeBg = GradientDrawable().apply {
                     setColor(verdictColor)
-                    cornerRadius = dpToPx(context, 6f).toFloat()
+                    cornerRadius = dpToPx(appContext, 6f).toFloat()
                 }
                 background = badgeBg
-                setPadding(dpToPx(context, 8f), dpToPx(context, 2f), dpToPx(context, 8f), dpToPx(context, 2f))
+                setPadding(dpToPx(appContext, 8f), dpToPx(appContext, 2f), dpToPx(appContext, 8f), dpToPx(appContext, 2f))
             }
 
             ratingCol.addView(perKmText)
@@ -220,7 +232,7 @@ object OverlayManager {
             card.addView(metricsRow)
 
             // Details Footer Row
-            val footerRow = TextView(context).apply {
+            val footerRow = TextView(appContext).apply {
                 text = String.format(
                     Locale.ROOT,
                     "Bruto: %.2f €  |  Distância: %.1f km  |  Custo Zoe: -%.2f €",
@@ -230,7 +242,7 @@ object OverlayManager {
                 )
                 textSize = 11f
                 setTextColor(Color.parseColor("#94A3B8"))
-                setPadding(0, dpToPx(context, 4f), 0, 0)
+                setPadding(0, dpToPx(appContext, 4f), 0, 0)
             }
             card.addView(footerRow)
 
@@ -262,12 +274,12 @@ object OverlayManager {
                     MotionEvent.ACTION_UP -> {
                         val diffX = kotlin.math.abs(event.rawX - initialTouchX)
                         val diffY = kotlin.math.abs(event.rawY - initialTouchY)
-                        if (diffX < dpToPx(context, 10f) && diffY < dpToPx(context, 10f)) {
+                        if (diffX < dpToPx(appContext, 10f) && diffY < dpToPx(appContext, 10f)) {
                             // User tapped card: open VoltDrive
                             try {
-                                val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                                val launchIntent = appContext.packageManager.getLaunchIntentForPackage(appContext.packageName)
                                 launchIntent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                context.startActivity(launchIntent)
+                                appContext.startActivity(launchIntent)
                                 hideOverlay()
                             } catch (e: Exception) {}
                         }
@@ -282,7 +294,9 @@ object OverlayManager {
 
             try {
                 wm.addView(root, params)
+                android.util.Log.d("VoltDrive", "Overlay view successfully displayed!")
             } catch (e: Exception) {
+                android.util.Log.e("VoltDrive", "Error adding overlay view: ${e.message}", e)
                 currentView = null
                 return@post
             }
@@ -291,10 +305,11 @@ object OverlayManager {
             autoDismissRunnable = Runnable { hideOverlay() }
             handler.postDelayed(autoDismissRunnable!!, 15000)
         }
+        return true
     }
 
-    fun showTestOffer(context: Context) {
-        showTripOffer(
+    fun showTestOffer(context: Context): Boolean {
+        return showTripOffer(
             context = context,
             platform = "BOLT",
             grossFare = 8.50,

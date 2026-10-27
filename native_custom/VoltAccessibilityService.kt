@@ -20,18 +20,21 @@ class VoltAccessibilityService : AccessibilityService() {
         var lastDistanceKm = 0.0
     }
 
-    private val pricePattern = Pattern.compile("(?:€\\s*([0-9]+[.,][0-9]{2})|([0-9]+[.,][0-9]{2})\\s*€)")
-    private val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*km\\b", Pattern.CASE_INSENSITIVE)
+    private val pricePattern = Pattern.compile("(?:(?:€|EUR)\\s*([0-9]+[.,][0-9]{2})|([0-9]+[.,][0-9]{2})\\s*(?:€|EUR))", Pattern.CASE_INSENSITIVE)
+    private val distKmPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*km\\b", Pattern.CASE_INSENSITIVE)
+    private val distMeterPattern = Pattern.compile("\\b([0-9]{2,4})\\s*m\\b", Pattern.CASE_INSENSITIVE)
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         isServiceRunning = true
+        android.util.Log.i("VoltDrive", "VoltAccessibilityService connected and active!")
     }
 
     override fun onDestroy() {
         super.onDestroy()
         isServiceRunning = false
         OverlayManager.hideOverlay()
+        android.util.Log.i("VoltDrive", "VoltAccessibilityService destroyed.")
     }
 
     override fun onInterrupt() {
@@ -43,7 +46,7 @@ class VoltAccessibilityService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
 
         val isUber = pkg.contains("ubercab.driver")
-        val isBolt = pkg.contains("mtakso.driver")
+        val isBolt = pkg.contains("mtakso.driver") || pkg.contains("bolt.driver")
 
         if (!isUber && !isBolt) return
 
@@ -52,10 +55,12 @@ class VoltAccessibilityService : AccessibilityService() {
         val textList = mutableListOf<String>()
         extractNodeTexts(rootNode, textList)
 
-        parseAndProcessOffer(
-            platform = if (isBolt) "BOLT" else "UBER",
-            texts = textList
-        )
+        if (textList.isNotEmpty()) {
+            parseAndProcessOffer(
+                platform = if (isBolt) "BOLT" else "UBER",
+                texts = textList
+            )
+        }
     }
 
     private fun extractNodeTexts(node: AccessibilityNodeInfo?, list: MutableList<String>) {
@@ -78,23 +83,33 @@ class VoltAccessibilityService : AccessibilityService() {
         val foundDistances = mutableListOf<Double>()
 
         for (text in texts) {
-            // Find Prices
+            // Find Prices: 8.50 €, 8,50€, €8.50, 8.50 EUR, etc.
             val priceMatcher = pricePattern.matcher(text)
             while (priceMatcher.find()) {
                 val group1 = priceMatcher.group(1)
                 val group2 = priceMatcher.group(2)
                 val rawVal = (group1 ?: group2)?.replace(',', '.') ?: continue
                 rawVal.toDoubleOrNull()?.let { p ->
-                    if (p in 1.5..250.0) foundPrices.add(p)
+                    if (p in 1.5..250.0 && !foundPrices.contains(p)) foundPrices.add(p)
                 }
             }
 
-            // Find Distances (km)
-            val distMatcher = distPattern.matcher(text)
+            // Find Distances in kilometers (e.g. 9.2 km)
+            val distMatcher = distKmPattern.matcher(text)
             while (distMatcher.find()) {
                 val rawDist = distMatcher.group(1)?.replace(',', '.') ?: continue
                 rawDist.toDoubleOrNull()?.let { d ->
-                    if (d in 0.1..200.0) foundDistances.add(d)
+                    if (d in 0.1..200.0 && !foundDistances.contains(d)) foundDistances.add(d)
+                }
+            }
+
+            // Find Distances in meters (e.g. 800 m = 0.8 km)
+            val meterMatcher = distMeterPattern.matcher(text)
+            while (meterMatcher.find()) {
+                val rawMeters = meterMatcher.group(1) ?: continue
+                rawMeters.toDoubleOrNull()?.let { m ->
+                    val km = m / 1000.0
+                    if (km in 0.05..5.0 && !foundDistances.contains(km)) foundDistances.add(km)
                 }
             }
         }
@@ -143,6 +158,11 @@ class VoltAccessibilityService : AccessibilityService() {
             netPerKm >= 0.50 -> Pair("ACEITÁVEL", Color.parseColor("#FFB020"))  // Bright Amber
             else -> Pair("RECUSAR", Color.parseColor("#FF5252"))                // Alert Red
         }
+
+        android.util.Log.i(
+            "VoltDrive",
+            "Offer detected from $platform: Gross=${grossFare}€ Dist=${totalDistanceKm}km NetProfit=${netProfit}€"
+        )
 
         // Haptic feedback
         vibrateSubtle()

@@ -84,10 +84,13 @@ class AssistantService {
     } catch (_) {}
   }
 
-  static Future<void> showTestOffer() async {
+  static Future<bool> showTestOffer() async {
     try {
-      await _channel.invokeMethod('showTestOffer');
-    } catch (_) {}
+      final res = await _channel.invokeMethod<bool>('showTestOffer');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<void> hideOverlay() async {
