@@ -48,7 +48,7 @@ class FinancialGoals {
     final isProfit = targetType == 'profit';
     final double achieved = shiftsInMonth.fold(
       0.0,
-      (sum, s) => sum + (isProfit ? s.estimatedNetProfit : s.totalGrossEarnings),
+      (sum, s) => sum + (isProfit ? s.netProfit : s.totalGross),
     );
 
     final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
@@ -97,7 +97,7 @@ class FinancialGoals {
     final isProfit = targetType == 'profit';
     final double achieved = shiftsInWeek.fold(
       0.0,
-      (sum, s) => sum + (isProfit ? s.estimatedNetProfit : s.totalGrossEarnings),
+      (sum, s) => sum + (isProfit ? s.netProfit : s.totalGross),
     );
 
     // Dias que faltam na semana até Domingo (incluindo hoje)
