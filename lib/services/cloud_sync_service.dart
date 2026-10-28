@@ -90,8 +90,15 @@ class CloudSyncService {
     }
 
     if (response['user'] != null && response['user']['id'] != null) {
-      // Registo com confirmação de email pendente ou criado
-      return await login(email: email, password: password);
+      // Tentar login direto (se Confirm email estiver desligado)
+      try {
+        return await login(email: email, password: password);
+      } catch (e) {
+        if (e.toString().toLowerCase().contains('confirm')) {
+          throw Exception('Conta criada! Por favor clica no link enviado para o teu email para ativar a conta.');
+        }
+        rethrow;
+      }
     }
 
     final msg = response['msg'] ?? response['error_description'] ?? response['message'] ?? 'Erro no registo.';
