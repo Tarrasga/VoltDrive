@@ -178,4 +178,78 @@ class StorageService {
     }
     return [];
   }
+
+  // ==========================================
+  // CÓPIA DE SEGURANÇA E TRANSFERÊNCIA DE DADOS
+  // ==========================================
+
+  /// Exporta todos os dados do VoltDrive (Perfil Zoe, Turnos, Metas, Sessões) em formato JSON
+  static Future<String> exportFullBackup() async {
+    final prefs = await SharedPreferences.getInstance();
+    final profile = await loadVehicleProfile();
+    final shifts = await loadShifts();
+    final goals = await loadFinancialGoals();
+    final drivingHistory = await loadDrivingHistory();
+    final userEmail = prefs.getString('voltdrive_auth_user_email') ?? '';
+
+    final backup = {
+      'app': 'VoltDrive',
+      'version': '1.0.37',
+      'exportDate': DateTime.now().toIso8601String(),
+      'userEmail': userEmail,
+      'vehicleProfile': profile.toJson(),
+      'shifts': shifts.map((s) => s.toJson()).toList(),
+      'financialGoals': goals.toJson(),
+      'drivingHistory': drivingHistory.map((d) => d.toJson()).toList(),
+    };
+
+    return const JsonEncoder.withIndent('  ').convert(backup);
+  }
+
+  /// Restaura todos os dados a partir de uma cópia de segurança JSON
+  static Future<int> importFullBackup(String jsonString) async {
+    final Map<String, dynamic> data = jsonDecode(jsonString);
+    if (data['app'] != 'VoltDrive' && !data.containsKey('shifts') && !data.containsKey('vehicleProfile')) {
+      throw const FormatException('Ficheiro de cópia de segurança inválido para o VoltDrive.');
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Restaurar Perfil do Veículo
+    if (data['vehicleProfile'] != null) {
+      final profile = VehicleProfile.fromJson(Map<String, dynamic>.from(data['vehicleProfile']));
+      await saveVehicleProfile(profile);
+    }
+
+    // 2. Restaurar Metas Financeiras
+    if (data['financialGoals'] != null) {
+      final goals = FinancialGoals.fromJson(Map<String, dynamic>.from(data['financialGoals']));
+      await saveFinancialGoals(goals);
+    }
+
+    // 3. Restaurar Histórico de Condução / Horas
+    if (data['drivingHistory'] != null) {
+      final list = (data['drivingHistory'] as List)
+          .map((item) => jsonEncode(item))
+          .toList();
+      await prefs.setStringList(_keyDrivingHistory, list);
+    }
+
+    // 4. Restaurar Email do Utilizador se presente
+    if (data['userEmail'] != null && (data['userEmail'] as String).isNotEmpty) {
+      await prefs.setString('voltdrive_auth_user_email', data['userEmail']);
+    }
+
+    // 5. Restaurar Turnos Financeiros
+    int shiftCount = 0;
+    if (data['shifts'] != null) {
+      final list = (data['shifts'] as List)
+          .map((item) => jsonEncode(item))
+          .toList();
+      await prefs.setStringList(_keyShifts, list);
+      shiftCount = list.length;
+    }
+
+    return shiftCount;
+  }
 }

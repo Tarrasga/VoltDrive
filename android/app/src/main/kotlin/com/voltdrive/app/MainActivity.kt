@@ -160,6 +160,33 @@ class MainActivity: FlutterFragmentActivity() {
                         result.error("PDF_ERROR", e.message, null)
                     }
                 }
+                "shareBackupFile" -> {
+                    try {
+                        val fileName = call.argument<String>("fileName") ?: "voltdrive_backup.json"
+                        val content = call.argument<String>("content") ?: ""
+                        val file = File(cacheDir, fileName)
+                        file.writeText(content, Charsets.UTF_8)
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            this@MainActivity,
+                            "$packageName.fileprovider",
+                            file
+                        )
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            putExtra(Intent.EXTRA_SUBJECT, "Cópia de Segurança VoltDrive")
+                            putExtra(Intent.EXTRA_TEXT, "Cópia de segurança dos dados do VoltDrive para troca de telemóvel.")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        val chooser = Intent.createChooser(sendIntent, "Guardar Cópia de Segurança VoltDrive")
+                        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(chooser)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        android.util.Log.e("VoltDrive", "Error sharing backup: ${e.message}", e)
+                        result.error("BACKUP_ERROR", e.message, null)
+                    }
+                }
                 "requestAccessibilityPermission" -> {
                     var launched = false
                     try {
@@ -581,7 +608,11 @@ class MainActivity: FlutterFragmentActivity() {
         paint.color = Color.parseColor("#0F172A")
         paint.textSize = 9f
         paint.typeface = Typeface.DEFAULT
-        val col1 = String.format(Locale.ROOT, "Uber: %.2f €  •  Bolt: %.2f €  •  Gorjetas: %.2f €", uberGross, boltGross, tips)
+        val col1 = if (uberGross > 0 || boltGross > 0) {
+            String.format(Locale.ROOT, "Uber: %.2f €  •  Bolt: %.2f €  •  Gorjetas: %.2f €", uberGross, boltGross, tips)
+        } else {
+            String.format(Locale.ROOT, "Faturação Total: %.2f €  •  Gorjetas Extras: %.2f €", totalGross, tips)
+        }
         val col2 = String.format(Locale.ROOT, "Km Totais: %.0f km  •  Horas: %.1f h  •  Média: %.2f €/km  •  Média: %.2f €/h", totalKm, totalHours, profitPerKm, profitPerHour)
         val col3 = String.format(Locale.ROOT, "Carregamento VE: %.2f € (%.1f kWh)  •  Portagens: %.2f €  •  Outros: %.2f €", chargingCost, chargingKwh, tollsCost, otherExpenses)
 
@@ -605,14 +636,13 @@ class MainActivity: FlutterFragmentActivity() {
         paint.textSize = 8f
         paint.typeface = Typeface.DEFAULT_BOLD
         canvas.drawText("DATA", 35f, headerY + 12f, paint)
-        canvas.drawText("UBER", 95f, headerY + 12f, paint)
-        canvas.drawText("BOLT", 145f, headerY + 12f, paint)
-        canvas.drawText("BRUTO", 195f, headerY + 12f, paint)
-        canvas.drawText("KM", 250f, headerY + 12f, paint)
-        canvas.drawText("HORAS", 295f, headerY + 12f, paint)
-        canvas.drawText("CARREG.", 350f, headerY + 12f, paint)
-        canvas.drawText("PORTAG.", 415f, headerY + 12f, paint)
-        canvas.drawText("LUCRO LÍQ.", 485f, headerY + 12f, paint)
+        canvas.drawText("FATURADO", 95f, headerY + 12f, paint)
+        canvas.drawText("KM", 180f, headerY + 12f, paint)
+        canvas.drawText("HORAS", 235f, headerY + 12f, paint)
+        canvas.drawText("CARREG.", 295f, headerY + 12f, paint)
+        canvas.drawText("PORTAG.", 365f, headerY + 12f, paint)
+        canvas.drawText("OUTROS", 435f, headerY + 12f, paint)
+        canvas.drawText("LUCRO LÍQ.", 500f, headerY + 12f, paint)
 
         var curRowY = headerY + 18f
         val rowH = 15f
@@ -630,27 +660,25 @@ class MainActivity: FlutterFragmentActivity() {
             paint.typeface = Typeface.DEFAULT
 
             val dateStr = s["date"] as? String ?: ""
-            val u = (s["uber"] as? Number)?.toDouble() ?: 0.0
-            val b = (s["bolt"] as? Number)?.toDouble() ?: 0.0
             val g = (s["gross"] as? Number)?.toDouble() ?: 0.0
             val km = (s["km"] as? Number)?.toDouble() ?: 0.0
             val h = (s["hours"] as? Number)?.toDouble() ?: 0.0
             val c = (s["charging"] as? Number)?.toDouble() ?: 0.0
             val t = (s["tolls"] as? Number)?.toDouble() ?: 0.0
+            val o = (s["otherExpenses"] as? Number)?.toDouble() ?: 0.0
             val n = (s["net"] as? Number)?.toDouble() ?: 0.0
 
             canvas.drawText(dateStr, 35f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", u), 95f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", b), 145f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", g), 195f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.0f", km), 250f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.1f h", h), 295f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", c), 350f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", t), 415f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", g), 95f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.0f km", km), 180f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.1f h", h), 235f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", c), 295f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", t), 365f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", o), 435f, curRowY + 10.5f, paint)
 
             paint.color = if (n >= 0) Color.parseColor("#16A34A") else Color.parseColor("#DC2626")
             paint.typeface = Typeface.DEFAULT_BOLD
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", n), 485f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", n), 500f, curRowY + 10.5f, paint)
 
             curRowY += rowH
             rowIdx++
@@ -665,16 +693,15 @@ class MainActivity: FlutterFragmentActivity() {
         paint.textSize = 8f
         paint.typeface = Typeface.DEFAULT_BOLD
         canvas.drawText("TOTAIS:", 35f, curRowY + 12f, paint)
-        canvas.drawText(String.format(Locale.ROOT, "%.2f €", uberGross), 95f, curRowY + 12f, paint)
-        canvas.drawText(String.format(Locale.ROOT, "%.2f €", boltGross), 145f, curRowY + 12f, paint)
-        canvas.drawText(String.format(Locale.ROOT, "%.2f €", totalGross), 195f, curRowY + 12f, paint)
-        canvas.drawText(String.format(Locale.ROOT, "%.0f km", totalKm), 250f, curRowY + 12f, paint)
-        canvas.drawText(String.format(Locale.ROOT, "%.1f h", totalHours), 295f, curRowY + 12f, paint)
-        canvas.drawText(String.format(Locale.ROOT, "%.2f €", chargingCost), 350f, curRowY + 12f, paint)
-        canvas.drawText(String.format(Locale.ROOT, "%.2f €", tollsCost), 415f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", totalGross), 95f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.0f km", totalKm), 180f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.1f h", totalHours), 235f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", chargingCost), 295f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", tollsCost), 365f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", otherExpenses), 435f, curRowY + 12f, paint)
 
         paint.color = Color.parseColor("#16A34A")
-        canvas.drawText(String.format(Locale.ROOT, "%.2f €", netProfit), 485f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", netProfit), 500f, curRowY + 12f, paint)
 
         // Rodapé da Página
         paint.color = Color.parseColor("#94A3B8")

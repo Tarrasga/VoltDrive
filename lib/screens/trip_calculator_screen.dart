@@ -13,12 +13,12 @@ class TripCalculatorScreen extends StatefulWidget {
 }
 
 class _TripCalculatorScreenState extends State<TripCalculatorScreen> with WidgetsBindingObserver {
-  final TextEditingController _fareController = TextEditingController(text: '8.50');
-  final TextEditingController _pickupDistController = TextEditingController(text: '2.5');
-  final TextEditingController _tripDistController = TextEditingController(text: '9.0');
-  final TextEditingController _durationController = TextEditingController(text: '20');
-  final TextEditingController _tollsController = TextEditingController(text: '0.00');
-  final TextEditingController _ratePerKmController = TextEditingController(text: '0.74');
+  final TextEditingController _fareController = TextEditingController();
+  final TextEditingController _pickupDistController = TextEditingController();
+  final TextEditingController _tripDistController = TextEditingController();
+  final TextEditingController _durationController = TextEditingController();
+  final TextEditingController _tollsController = TextEditingController();
+  final TextEditingController _ratePerKmController = TextEditingController();
 
   VehicleProfile _profile = VehicleProfile();
   bool _usePublicCharging = true;
@@ -217,7 +217,10 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
     }
 
     final calc = _calculate();
-    final verdictColor = _getVerdictColor(calc.verdict);
+    final bool isEmptyState = calc.grossFare <= 0 && calc.totalDistanceKm <= 0;
+    final verdictColor = isEmptyState ? AppTheme.primaryElectric : _getVerdictColor(calc.verdict);
+    final verdictIcon = isEmptyState ? Icons.calculate_outlined : _getVerdictIcon(calc.verdict);
+    final verdictText = isEmptyState ? 'Aguardar Valores' : calc.verdictText;
     final isAssistantActive = _overlayGranted && _accessibilityEnabled && !_isReaderPaused;
 
     return Scaffold(
@@ -263,10 +266,10 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                     children: [
                       Row(
                         children: [
-                          Icon(_getVerdictIcon(calc.verdict), color: verdictColor, size: 28),
+                          Icon(verdictIcon, color: verdictColor, size: 28),
                           const SizedBox(width: 8),
                           Text(
-                            calc.verdictText,
+                            verdictText,
                             style: TextStyle(
                               color: verdictColor,
                               fontSize: 18,
@@ -282,7 +285,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          '${calc.netProfitPerKm.toStringAsFixed(2)} € / km',
+                          isEmptyState ? '0.00 € / km' : '${calc.netProfitPerKm.toStringAsFixed(2)} € / km',
                           style: TextStyle(
                             color: verdictColor,
                             fontWeight: FontWeight.bold,
@@ -492,6 +495,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                                   decoration: InputDecoration(
                                     labelText: 'Taxa / km (€)',
+                                    hintText: 'Ex: 0.85',
                                     labelStyle: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
                                     prefixIcon: const Icon(Icons.speed, size: 16, color: AppTheme.primaryElectric),
                                     filled: true,
@@ -543,6 +547,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryElectric),
                             decoration: const InputDecoration(
                               labelText: 'Valor Total da Viagem (€)',
+                              hintText: '0.00',
                               prefixIcon: Icon(Icons.euro, color: AppTheme.primaryElectric),
                             ),
                             onChanged: _onFareChanged,
@@ -566,6 +571,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
                               labelText: 'Até Recolha (km)',
+                              hintText: '0.0',
                               prefixIcon: Icon(Icons.near_me_outlined, color: AppTheme.textMuted),
                             ),
                             onChanged: (_) => _onDistanceChanged(),
@@ -578,6 +584,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
                               labelText: 'Viagem (km)',
+                              hintText: '0.0',
                               prefixIcon: Icon(Icons.directions_car_outlined, color: AppTheme.textMuted),
                             ),
                             onChanged: (_) => _onDistanceChanged(),
@@ -610,6 +617,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               labelText: 'Tempo (minutos)',
+                              hintText: 'Ex: 15',
                               prefixIcon: Icon(Icons.timer_outlined, color: AppTheme.textMuted),
                             ),
                             onChanged: (_) => setState(() {}),
@@ -622,6 +630,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
                               labelText: 'Portagens (€)',
+                              hintText: '0.00',
                               prefixIcon: Icon(Icons.toll_outlined, color: AppTheme.textMuted),
                             ),
                             onChanged: (_) => setState(() {}),

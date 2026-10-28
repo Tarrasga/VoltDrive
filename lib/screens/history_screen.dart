@@ -184,7 +184,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildHistoryStat('Bruto', '${totalGross.toStringAsFixed(0)} €'),
+                    _buildHistoryStat('Receita', '${totalGross.toStringAsFixed(0)} €'),
                     _buildHistoryStat('Km Totais', '${totalKm.toStringAsFixed(0)} km'),
                     _buildHistoryStat('Média / Dia', '${avgProfitPerDay.toStringAsFixed(1)} €'),
                     _buildHistoryStat('Média / km', '${avgProfitPerKm.toStringAsFixed(2)} €'),
@@ -252,7 +252,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'Uber: ${s.uberGross.toStringAsFixed(0)}€ | Bolt: ${s.boltGross.toStringAsFixed(0)}€ | Gorjetas: ${s.tips.toStringAsFixed(1)}€',
+                                    s.driverEarnings > 0
+                                        ? 'Ganho: ${s.driverEarnings.toStringAsFixed(2)} € ${s.tips > 0 ? "| Gorjetas: +${s.tips.toStringAsFixed(2)} €" : ""}'
+                                        : 'Uber: ${s.uberGross.toStringAsFixed(0)}€ | Bolt: ${s.boltGross.toStringAsFixed(0)}€ | Gorjetas: ${s.tips.toStringAsFixed(1)}€',
                                     style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
                                   ),
                                   Text(

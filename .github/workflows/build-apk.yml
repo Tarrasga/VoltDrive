@@ -94,24 +94,26 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.36"
-          name: "VoltDrive v1.0.36 (Deteção Apps TVDE e Exportação PDF Mensal)"
+          tag_name: "v1.0.37"
+          name: "VoltDrive v1.0.37 (Contas Simplificadas, Campos Limpos e Backup/Troca de Telemóvel)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.36 - Indicador de Apps TVDE & Exportação PDF Mensal
+            ## ⚡ VoltDrive v1.0.37 - Contas Simplificadas, Campos Limpos e Transferência de Dados
 
             ### 🚀 Novidades:
-            1. **📱 Indicador de Aplicações TVDE Detetadas**:
-               - Confirmação visual no painel do Assistente se a **Uber Driver** e a **Bolt Driver** estão instaladas e detetadas no telemóvel.
-               - Suporte completo a `<queries>` no AndroidManifest para deteção segura no Android 11, 14, 15 e 16.
-            2. **📄 Exportação de Registo Mensal em PDF**:
-               - Criação de relatório mensal profissional em PDF (tamanho A4) com um só clique.
-               - Inclui KPIs gerais: Faturação Bruta Total, Comissões retidas (25%), Despesas VE (Carregamentos e Portagens), Lucro Líquido Real, Km Totais e Médias (€/km e €/hora).
-               - Tabela diária detalhada de todos os turnos do mês com totais acumulados.
-               - Abre diretamente no visualizador PDF do telemóvel ou partilha para WhatsApp / Email / Contabilidade.
-            3. **⏹️ Botão de Parar / Retomar Leitura de Ecrã**:
-               - Botão grande de paragem no ecrã e botão de pausa rápida `⏸` na janela flutuante.
+            1. **💰 Contas Simplificadas ("O dinheiro que fica para mim")**:
+               - Removida a separação manual e taxas de Uber e Bolt nos registos diários.
+               - Agora basta introduzir o valor real que fica para o condutor (dinheiro que entra na conta).
+               - Lucro Líquido Real calculado diretamente: `Dinheiro Ganho - Despesas Reais (Carregamento Zoe + Portagens + Outros)`.
+            2. **🧹 Limpeza Total de Campos Pré-preenchidos**:
+               - Removidos todos os valores fictícios (95€, 80€, 124500km, etc.) dos formulários de Fecho do Dia, Calendário de Lucros, Simulador de Viagens e Metas.
+               - Todos os campos iniciam agora vazios com sugestões (hints) claras e intuitivas.
+            3. **🔄 Cópia de Segurança & Troca de Telemóvel (Backup & Restore)**:
+               - Nova funcionalidade nas Definições para exportar cópia completa de todos os dados (turnos, histórico, metas, veículo) para o Google Drive, WhatsApp ou ficheiro.
+               - Opção de restaurar tudo num telemóvel novo em apenas 2 segundos sem perda de histórico.
+            4. **📄 PDF Mensal Atualizado**:
+               - Tabela e resumo formatados com base no dinheiro líquido ganho, km rodados, consumo do Renault Zoe e despesas.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

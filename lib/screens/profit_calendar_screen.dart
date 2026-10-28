@@ -877,18 +877,24 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.payments_outlined, color: AppTheme.primaryElectric, size: 20),
+                  Icon(Icons.payments_outlined, color: AppTheme.accentGreen, size: 20),
                   SizedBox(width: 8),
-                  Text('Faturação das Plataformas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('Receita / Dinheiro Ganho', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ],
               ),
               const Divider(color: AppTheme.darkBorder, height: 18),
-              _buildDetailRow('Uber Driver (Bruto)', '${shift.uberGross.toStringAsFixed(2)} €'),
-              _buildDetailRow('Bolt Driver (Bruto)', '${shift.boltGross.toStringAsFixed(2)} €'),
-              _buildDetailRow('Gorjetas Recebidas (100% tuas)', '+${shift.tips.toStringAsFixed(2)} €', color: AppTheme.accentGreen),
-              const Divider(color: AppTheme.darkBorder, height: 18),
-              _buildDetailRow('Faturação Bruta Total', '${shift.totalGross.toStringAsFixed(2)} €', isBold: true),
-              _buildDetailRow('Comissão Plataformas (~${shift.platformFeePercent.toStringAsFixed(0)}%)', '-${shift.platformFeeAmount.toStringAsFixed(2)} €', color: AppTheme.dangerRed),
+              if (shift.driverEarnings > 0) ...[
+                _buildDetailRow('Dinheiro Ganho (para mim)', '${shift.driverEarnings.toStringAsFixed(2)} €', isBold: true),
+                if (shift.tips > 0)
+                  _buildDetailRow('Gorjetas Recebidas', '+${shift.tips.toStringAsFixed(2)} €', color: AppTheme.accentGreen),
+              ] else ...[
+                if (shift.uberGross > 0) _buildDetailRow('Uber Driver (Bruto)', '${shift.uberGross.toStringAsFixed(2)} €'),
+                if (shift.boltGross > 0) _buildDetailRow('Bolt Driver (Bruto)', '${shift.boltGross.toStringAsFixed(2)} €'),
+                if (shift.tips > 0) _buildDetailRow('Gorjetas Recebidas', '+${shift.tips.toStringAsFixed(2)} €', color: AppTheme.accentGreen),
+                _buildDetailRow('Total Ganho', '${shift.totalGross.toStringAsFixed(2)} €', isBold: true),
+                if (shift.platformFeeAmount > 0)
+                  _buildDetailRow('Comissão Plataformas (~${shift.platformFeePercent.toStringAsFixed(0)}%)', '-${shift.platformFeeAmount.toStringAsFixed(2)} €', color: AppTheme.dangerRed),
+              ],
             ],
           ),
         ),
@@ -1065,16 +1071,20 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
   // ==========================================
 
   void _openShiftFormDialog({required DateTime date, DailyShift? existingShift}) {
-    final uberCtrl = TextEditingController(text: existingShift?.uberGross.toStringAsFixed(2) ?? '95.00');
-    final boltCtrl = TextEditingController(text: existingShift?.boltGross.toStringAsFixed(2) ?? '80.00');
-    final tipsCtrl = TextEditingController(text: existingShift?.tips.toStringAsFixed(2) ?? '8.50');
-    final startKmCtrl = TextEditingController(text: existingShift != null && existingShift.startKm > 0 ? existingShift.startKm.toStringAsFixed(0) : '124500');
-    final endKmCtrl = TextEditingController(text: existingShift != null && existingShift.endKm > 0 ? existingShift.endKm.toStringAsFixed(0) : '124710');
-    final kmCtrl = TextEditingController(text: existingShift?.totalKm.toStringAsFixed(1) ?? '210.0');
-    final hoursCtrl = TextEditingController(text: existingShift?.hoursWorked.toStringAsFixed(1) ?? '8.5');
-    final chargingCtrl = TextEditingController(text: existingShift?.chargingCost.toStringAsFixed(2) ?? '12.50');
-    final tollsCtrl = TextEditingController(text: existingShift?.tollsCost.toStringAsFixed(2) ?? '4.20');
-    final othersCtrl = TextEditingController(text: existingShift?.otherExpenses.toStringAsFixed(2) ?? '2.50');
+    final earningsVal = existingShift != null
+        ? (existingShift.driverEarnings > 0
+            ? existingShift.driverEarnings.toStringAsFixed(2)
+            : (existingShift.totalGross > 0 ? existingShift.totalGross.toStringAsFixed(2) : ''))
+        : '';
+    final earningsCtrl = TextEditingController(text: earningsVal);
+    final tipsCtrl = TextEditingController(text: existingShift != null && existingShift.tips > 0 ? existingShift.tips.toStringAsFixed(2) : '');
+    final startKmCtrl = TextEditingController(text: existingShift != null && existingShift.startKm > 0 ? existingShift.startKm.toStringAsFixed(0) : '');
+    final endKmCtrl = TextEditingController(text: existingShift != null && existingShift.endKm > 0 ? existingShift.endKm.toStringAsFixed(0) : '');
+    final kmCtrl = TextEditingController(text: existingShift != null && existingShift.totalKm > 0 ? existingShift.totalKm.toStringAsFixed(1) : '');
+    final hoursCtrl = TextEditingController(text: existingShift != null && existingShift.hoursWorked > 0 ? existingShift.hoursWorked.toStringAsFixed(1) : '');
+    final chargingCtrl = TextEditingController(text: existingShift != null && existingShift.chargingCost > 0 ? existingShift.chargingCost.toStringAsFixed(2) : '');
+    final tollsCtrl = TextEditingController(text: existingShift != null && existingShift.tollsCost > 0 ? existingShift.tollsCost.toStringAsFixed(2) : '');
+    final othersCtrl = TextEditingController(text: existingShift != null && existingShift.otherExpenses > 0 ? existingShift.otherExpenses.toStringAsFixed(2) : '');
 
     showModalBottomSheet(
       context: context,
@@ -1085,8 +1095,7 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
         builder: (dlgCtx, setModalState) {
           double parseVal(TextEditingController c) => double.tryParse(c.text.replaceAll(',', '.')) ?? 0.0;
 
-          final uber = parseVal(uberCtrl);
-          final bolt = parseVal(boltCtrl);
+          final earnings = parseVal(earningsCtrl);
           final tips = parseVal(tipsCtrl);
           final startKm = parseVal(startKmCtrl);
           final endKm = parseVal(endKmCtrl);
@@ -1095,8 +1104,7 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
           final tolls = parseVal(tollsCtrl);
           final others = parseVal(othersCtrl);
 
-          final platformFee = _profile.platformFeePercent / 100.0;
-          final netRevenue = ((uber + bolt) * (1.0 - platformFee)) + tips;
+          final netRevenue = earnings + tips;
           final totalCosts = charging + tolls + others;
           final estNetProfit = netRevenue - totalCosts;
 
@@ -1133,34 +1141,37 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // FATURAÇÃO BRUTA
-                  const Text('1. Faturação Bruta das Plataformas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryElectric)),
+                  // DINHEIRO GANHO NO TURNO
+                  const Text('1. Dinheiro Ganho no Turno', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.accentGreen)),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       Expanded(
+                        flex: 3,
                         child: TextField(
-                          controller: uberCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Uber (€)', prefixIcon: Icon(Icons.directions_car, size: 16)),
+                          controller: earningsCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                          decoration: const InputDecoration(
+                            labelText: 'Dinheiro para mim (€)',
+                            hintText: '0.00',
+                            prefixIcon: Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppTheme.accentGreen),
+                            helperText: 'Líquido que fica para ti',
+                          ),
                           onChanged: (_) => setModalState(() {}),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: TextField(
-                          controller: boltCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Bolt (€)', prefixIcon: Icon(Icons.bolt, size: 16, color: Color(0xFF00D665))),
-                          onChanged: (_) => setModalState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
+                        flex: 2,
                         child: TextField(
                           controller: tipsCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Gorjetas (€)', prefixIcon: Icon(Icons.favorite, size: 16, color: AppTheme.accentGreen)),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(
+                            labelText: 'Gorjetas (€)',
+                            hintText: '0.00',
+                            prefixIcon: Icon(Icons.volunteer_activism, size: 18, color: AppTheme.primaryElectric),
+                          ),
                           onChanged: (_) => setModalState(() {}),
                         ),
                       ),
@@ -1177,8 +1188,8 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                       Expanded(
                         child: TextField(
                           controller: startKmCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Km Iniciais', hintText: '124500'),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'Km Iniciais', hintText: 'Ex: 124500'),
                           onChanged: (_) => setModalState(() {}),
                         ),
                       ),
@@ -1186,8 +1197,8 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                       Expanded(
                         child: TextField(
                           controller: endKmCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Km Finais', hintText: '124710'),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'Km Finais', hintText: 'Ex: 124710'),
                           onChanged: (_) => setModalState(() {}),
                         ),
                       ),
@@ -1195,8 +1206,8 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                       Expanded(
                         child: TextField(
                           controller: hoursCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Horas (h)', hintText: '8.5'),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'Horas (h)', hintText: 'Ex: 8.0'),
                         ),
                       ),
                     ],
@@ -1212,8 +1223,8 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                       Expanded(
                         child: TextField(
                           controller: chargingCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Carregamento (€)', prefixIcon: Icon(Icons.ev_station, size: 16, color: AppTheme.accentGreen)),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'Carregamento (€)', hintText: '0.00', prefixIcon: Icon(Icons.ev_station, size: 16, color: AppTheme.accentGreen)),
                           onChanged: (_) => setModalState(() {}),
                         ),
                       ),
@@ -1221,8 +1232,8 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                       Expanded(
                         child: TextField(
                           controller: tollsCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Portagens (€)', prefixIcon: Icon(Icons.toll, size: 16)),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'Portagens (€)', hintText: '0.00', prefixIcon: Icon(Icons.toll, size: 16)),
                           onChanged: (_) => setModalState(() {}),
                         ),
                       ),
@@ -1230,8 +1241,8 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                       Expanded(
                         child: TextField(
                           controller: othersCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Outros (€)', prefixIcon: Icon(Icons.receipt_long, size: 16)),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'Outros (€)', hintText: '0.00', prefixIcon: Icon(Icons.receipt_long, size: 16)),
                           onChanged: (_) => setModalState(() {}),
                         ),
                       ),
@@ -1277,8 +1288,7 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                       final newShift = DailyShift(
                         id: existingShift?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
                         date: date,
-                        uberGross: uber,
-                        boltGross: bolt,
+                        driverEarnings: earnings,
                         tips: tips,
                         startKm: startKm,
                         endKm: endKm,
@@ -1308,6 +1318,11 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                     ),
                     child: const Text('Guardar Fecho do Turno', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
+                ],
+              ),
+            ),
+          );
+        },
                 ],
               ),
             ),

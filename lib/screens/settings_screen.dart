@@ -84,6 +84,132 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _exportBackup() async {
+    try {
+      final jsonBackup = await StorageService.exportFullBackup();
+      final now = DateTime.now();
+      final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final fileName = 'voltdrive_backup_$dateStr.json';
+
+      final success = await AssistantService.shareBackupFile(
+        fileName: fileName,
+        content: jsonBackup,
+      );
+
+      if (!mounted) return;
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cópia de segurança gerada! Podes guardar no Google Drive ou WhatsApp.'),
+            backgroundColor: AppTheme.accentGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao exportar cópia: $e'),
+          backgroundColor: AppTheme.dangerRed,
+        ),
+      );
+    }
+  }
+
+  void _showRestoreDialog() {
+    final textController = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.darkCard,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (dlgCtx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(dlgCtx).viewInsets.bottom + 20,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.cloud_download_outlined, color: AppTheme.primaryElectric, size: 22),
+                      SizedBox(width: 8),
+                      Text('Restaurar Cópia de Segurança', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppTheme.textMuted),
+                    onPressed: () => Navigator.pop(dlgCtx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Cola aqui o texto do teu ficheiro de cópia de segurança (.json) exportado do telemóvel anterior:',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: textController,
+                maxLines: 8,
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                decoration: const InputDecoration(
+                  hintText: '{\n  "app": "VoltDrive",\n  "shifts": [...]\n}',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.all(12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final text = textController.text.trim();
+                  if (text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Por favor cola o conteúdo da cópia de segurança.'), backgroundColor: AppTheme.warningAmber),
+                    );
+                    return;
+                  }
+                  try {
+                    final count = await StorageService.importFullBackup(text);
+                    await _loadProfile();
+                    if (mounted) Navigator.pop(dlgCtx);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Dados restaurados com sucesso! ($count turnos importados)'),
+                          backgroundColor: AppTheme.accentGreen,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erro ao restaurar: $e'), backgroundColor: AppTheme.dangerRed),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.restore_page_outlined),
+                label: const Text('Restaurar Dados Agora'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryElectric,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -418,6 +544,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                       ),
                     ],
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // CÓPIA DE SEGURANÇA E TROCA DE TELEMÓVEL
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentGreen.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.cloud_sync_outlined, color: AppTheme.accentGreen, size: 20),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Cópia de Segurança & Troca de Telemóvel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Guarda os teus dados de turnos, metas e despesas para quando trocares de telemóvel não perderes nada.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _exportBackup,
+                            icon: const Icon(Icons.file_upload_outlined, size: 16),
+                            label: const Text('Exportar Cópia', style: TextStyle(fontSize: 12)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.accentGreen,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _showRestoreDialog,
+                            icon: const Icon(Icons.file_download_outlined, size: 16, color: AppTheme.primaryElectric),
+                            label: const Text('Restaurar Dados', style: TextStyle(color: AppTheme.primaryElectric, fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppTheme.primaryElectric),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),

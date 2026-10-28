@@ -1,9 +1,10 @@
 class DailyShift {
   final String id;
   final DateTime date;
-  final double uberGross;
-  final double boltGross;
-  final double tips;
+  final double driverEarnings; // Dinheiro ganho que fica para o condutor ("o que fica para mim")
+  final double uberGross;      // Mantido para compatibilidade de registos antigos
+  final double boltGross;      // Mantido para compatibilidade de registos antigos
+  final double tips;           // Gorjetas / extras recebidos
   final double startKm;        // Km no início do turno (odómetro)
   final double endKm;          // Km no fim do turno (odómetro)
   final double _manualTotalKm; // Km total manual se não usar odómetro
@@ -21,6 +22,7 @@ class DailyShift {
   DailyShift({
     required this.id,
     required this.date,
+    this.driverEarnings = 0.0,
     this.uberGross = 0.0,
     this.boltGross = 0.0,
     this.tips = 0.0,
@@ -31,7 +33,7 @@ class DailyShift {
     this.chargingKwh = 0.0,
     this.tollsCost = 0.0,
     this.otherExpenses = 0.0,
-    this.hoursWorked = 8.0,
+    this.hoursWorked = 0.0,
     this.notes = '',
     this.platformFeePercent = 25.0,
     this.fleetCommissionPercent = 0.0,
@@ -45,28 +47,44 @@ class DailyShift {
     return _manualTotalKm;
   }
 
-  // Faturação Bruta Total (Uber + Bolt + Tips)
-  double get totalGross => uberGross + boltGross + tips;
+  // Faturação / Ganho Total antes de despesas (se tiver driverEarnings usa direto; caso contrário histórico Uber+Bolt+Tips)
+  double get totalGross {
+    if (driverEarnings > 0) {
+      return driverEarnings + tips;
+    }
+    return uberGross + boltGross + tips;
+  }
 
-  // Faturação de plataformas sujeita a taxas
+  // Faturação de plataformas sujeita a taxas (histórico)
   double get appsGross => uberGross + boltGross;
 
-  // Valor retido pelas plataformas (ex: 25%)
-  double get platformFeeAmount => appsGross * (platformFeePercent / 100.0);
+  // Valor retido pelas plataformas (ex: 25%) no histórico
+  double get platformFeeAmount {
+    if (driverEarnings > 0) return 0.0;
+    return appsGross * (platformFeePercent / 100.0);
+  }
 
-  // Valor após plataformas
+  // Valor após plataformas (histórico)
   double get afterPlatform => appsGross - platformFeeAmount;
 
-  // Comissão de parceiro/frota (se for o caso)
-  double get fleetCommissionAmount => afterPlatform * (fleetCommissionPercent / 100.0);
+  // Comissão de parceiro/frota (se for o caso no histórico)
+  double get fleetCommissionAmount {
+    if (driverEarnings > 0) return 0.0;
+    return afterPlatform * (fleetCommissionPercent / 100.0);
+  }
 
-  // Faturação líquida de comissões (incluindo 100% das gorjetas)
-  double get netRevenue => (afterPlatform - fleetCommissionAmount) + tips;
+  // Faturação líquida que entra no bolso do condutor pelas viagens
+  double get netRevenue {
+    if (driverEarnings > 0) {
+      return driverEarnings + tips;
+    }
+    return (afterPlatform - fleetCommissionAmount) + tips;
+  }
 
   // Despesas operacionais totais do dia
   double get totalExpenses => chargingCost + tollsCost + otherExpenses;
 
-  // Lucro Líquido Real que fica na conta
+  // Lucro Líquido Real que fica na conta (Receita Líquida - Despesas do Carro)
   double get netProfit => netRevenue - totalExpenses;
 
   // Rentabilidade por km rodado
@@ -84,6 +102,7 @@ class DailyShift {
   Map<String, dynamic> toJson() => {
     'id': id,
     'date': date.toIso8601String(),
+    'driverEarnings': driverEarnings,
     'uberGross': uberGross,
     'boltGross': boltGross,
     'tips': tips,
@@ -103,6 +122,7 @@ class DailyShift {
   factory DailyShift.fromJson(Map<String, dynamic> json) => DailyShift(
     id: json['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
     date: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
+    driverEarnings: (json['driverEarnings'] as num?)?.toDouble() ?? 0.0,
     uberGross: (json['uberGross'] as num?)?.toDouble() ?? 0.0,
     boltGross: (json['boltGross'] as num?)?.toDouble() ?? 0.0,
     tips: (json['tips'] as num?)?.toDouble() ?? 0.0,
@@ -113,7 +133,7 @@ class DailyShift {
     chargingKwh: (json['chargingKwh'] as num?)?.toDouble() ?? 0.0,
     tollsCost: (json['tollsCost'] as num?)?.toDouble() ?? 0.0,
     otherExpenses: (json['otherExpenses'] as num?)?.toDouble() ?? 0.0,
-    hoursWorked: (json['hoursWorked'] as num?)?.toDouble() ?? 8.0,
+    hoursWorked: (json['hoursWorked'] as num?)?.toDouble() ?? 0.0,
     notes: json['notes'] as String? ?? '',
     platformFeePercent: (json['platformFeePercent'] as num?)?.toDouble() ?? 25.0,
     fleetCommissionPercent: (json['fleetCommissionPercent'] as num?)?.toDouble() ?? 0.0,

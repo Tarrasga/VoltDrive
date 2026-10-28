@@ -291,4 +291,16 @@ class AssistantService {
       });
     } catch (_) {}
   }
+
+  static Future<bool> shareBackupFile({required String fileName, required String content}) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('shareBackupFile', {
+        'fileName': fileName,
+        'content': content,
+      });
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
 }

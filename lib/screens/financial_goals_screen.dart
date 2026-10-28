@@ -76,8 +76,8 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
         setState(() {
           _goals = loadedGoals;
           _shifts = loadedShifts;
-          _monthlyController.text = loadedGoals.monthlyTarget.toStringAsFixed(0);
-          _weeklyController.text = loadedGoals.weeklyTarget.toStringAsFixed(0);
+          _monthlyController.text = loadedGoals.monthlyTarget > 0 ? loadedGoals.monthlyTarget.toStringAsFixed(0) : '';
+          _weeklyController.text = loadedGoals.weeklyTarget > 0 ? loadedGoals.weeklyTarget.toStringAsFixed(0) : '';
           _targetType = loadedGoals.targetType;
           _workDaysPerWeek = loadedGoals.workDaysPerWeek;
           _isLoading = false;
@@ -612,6 +612,7 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
             style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
+              hintText: 'Ex: 2500',
               suffixText: '€ / mês',
               suffixStyle: const TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold),
               prefixIcon: const Icon(Icons.euro, color: AppTheme.primaryElectric),
@@ -653,6 +654,7 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
             style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
+              hintText: 'Ex: 600',
               suffixText: '€ / semana',
               suffixStyle: const TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.bold),
               prefixIcon: const Icon(Icons.calendar_view_week, color: AppTheme.accentGreen),

@@ -12,17 +12,16 @@ class DailyShiftScreen extends StatefulWidget {
 }
 
 class _DailyShiftScreenState extends State<DailyShiftScreen> {
-  final TextEditingController _uberController = TextEditingController(text: '95.00');
-  final TextEditingController _boltController = TextEditingController(text: '80.00');
-  final TextEditingController _tipsController = TextEditingController(text: '8.50');
-  final TextEditingController _startKmController = TextEditingController(text: '124500');
-  final TextEditingController _endKmController = TextEditingController(text: '124710');
-  final TextEditingController _kmController = TextEditingController(text: '210.0');
-  final TextEditingController _hoursController = TextEditingController(text: '8.5');
-  final TextEditingController _chargingCostController = TextEditingController(text: '12.50');
-  final TextEditingController _chargingKwhController = TextEditingController(text: '34.0');
-  final TextEditingController _tollsController = TextEditingController(text: '4.20');
-  final TextEditingController _otherExpensesController = TextEditingController(text: '2.50');
+  final TextEditingController _earningsController = TextEditingController();
+  final TextEditingController _tipsController = TextEditingController();
+  final TextEditingController _startKmController = TextEditingController();
+  final TextEditingController _endKmController = TextEditingController();
+  final TextEditingController _kmController = TextEditingController();
+  final TextEditingController _hoursController = TextEditingController();
+  final TextEditingController _chargingCostController = TextEditingController();
+  final TextEditingController _chargingKwhController = TextEditingController();
+  final TextEditingController _tollsController = TextEditingController();
+  final TextEditingController _otherExpensesController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   VehicleProfile _profile = VehicleProfile();
@@ -32,6 +31,22 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    _earningsController.dispose();
+    _tipsController.dispose();
+    _startKmController.dispose();
+    _endKmController.dispose();
+    _kmController.dispose();
+    _hoursController.dispose();
+    _chargingCostController.dispose();
+    _chargingKwhController.dispose();
+    _tollsController.dispose();
+    _otherExpensesController.dispose();
+    _notesController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProfile() async {
@@ -51,14 +66,13 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
   }
 
   DailyShift _calculateCurrentShift() {
-    final uber = double.tryParse(_uberController.text.replaceAll(',', '.')) ?? 0.0;
-    final bolt = double.tryParse(_boltController.text.replaceAll(',', '.')) ?? 0.0;
+    final earnings = double.tryParse(_earningsController.text.replaceAll(',', '.')) ?? 0.0;
     final tips = double.tryParse(_tipsController.text.replaceAll(',', '.')) ?? 0.0;
     final startKm = double.tryParse(_startKmController.text.replaceAll(',', '.')) ?? 0.0;
     final endKm = double.tryParse(_endKmController.text.replaceAll(',', '.')) ?? 0.0;
     final manualKm = double.tryParse(_kmController.text.replaceAll(',', '.')) ?? 0.0;
     final km = (endKm > startKm && startKm > 0) ? (endKm - startKm) : manualKm;
-    final hours = double.tryParse(_hoursController.text.replaceAll(',', '.')) ?? 8.0;
+    final hours = double.tryParse(_hoursController.text.replaceAll(',', '.')) ?? 0.0;
     final charging = double.tryParse(_chargingCostController.text.replaceAll(',', '.')) ?? 0.0;
     final kwh = double.tryParse(_chargingKwhController.text.replaceAll(',', '.')) ?? 0.0;
     final tolls = double.tryParse(_tollsController.text.replaceAll(',', '.')) ?? 0.0;
@@ -67,8 +81,7 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
     return DailyShift(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       date: DateTime.now(),
-      uberGross: uber,
-      boltGross: bolt,
+      driverEarnings: earnings,
       tips: tips,
       startKm: startKm,
       endKm: endKm,
@@ -189,7 +202,7 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildMetricItem('Faturação Bruta', '${shift.totalGross.toStringAsFixed(2)} €', AppTheme.textPrimary),
+                      _buildMetricItem('Dinheiro Ganho', '${shift.netRevenue.toStringAsFixed(2)} €', AppTheme.textPrimary),
                       Container(width: 1, height: 35, color: AppTheme.darkBorder),
                       _buildMetricItem('Despesas Totais', '${shift.totalExpenses.toStringAsFixed(2)} €', AppTheme.dangerRed),
                       Container(width: 1, height: 35, color: AppTheme.darkBorder),
@@ -204,7 +217,7 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
 
             const SizedBox(height: 16),
 
-            // FATURAÇÃO (UBER / BOLT / GORJETAS)
+            // DINHEIRO QUE FICA PARA MIM (SIMPLIFICADO)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -215,43 +228,34 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                       children: [
                         Icon(Icons.payments_outlined, color: AppTheme.accentGreen, size: 20),
                         SizedBox(width: 8),
-                        Text('Faturação do Dia (Bruta)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text('Dinheiro Ganho no Turno', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Insere o valor real que fica para ti (já sem comissões)',
+                      style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                    ),
                     const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _uberController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Uber Bruto (€)',
-                              prefixIcon: Icon(Icons.drive_eta, color: AppTheme.textMuted),
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _boltController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Bolt Bruto (€)',
-                              prefixIcon: Icon(Icons.bolt, color: AppTheme.accentGreen),
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                      ],
+                    TextField(
+                      controller: _earningsController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Dinheiro que fica para mim (€)',
+                        hintText: '0.00',
+                        prefixIcon: Icon(Icons.account_balance_wallet_outlined, color: AppTheme.accentGreen),
+                        helperText: 'Total líquido ganho com as viagens do dia',
+                      ),
+                      onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _tipsController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Gorjetas / Tips (€) (100% livres de taxa)',
+                        labelText: 'Gorjetas / Extras (€) (opcional)',
+                        hintText: '0.00',
                         prefixIcon: Icon(Icons.volunteer_activism, color: AppTheme.primaryElectric),
                       ),
                       onChanged: (_) => setState(() {}),
@@ -286,7 +290,8 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                             controller: _startKmController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Km Inicial (Início)',
+                              labelText: 'Km Inicial',
+                              hintText: 'Ex: 124500',
                               prefixIcon: Icon(Icons.pin_drop_outlined, color: AppTheme.textMuted),
                             ),
                             onChanged: (_) {
@@ -301,7 +306,8 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                             controller: _endKmController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Km Final (Fim)',
+                              labelText: 'Km Final',
+                              hintText: 'Ex: 124710',
                               prefixIcon: Icon(Icons.flag_outlined, color: AppTheme.accentGreen),
                             ),
                             onChanged: (_) {
@@ -320,7 +326,8 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                             controller: _kmController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Km Totais do Turno',
+                              labelText: 'Km Totais',
+                              hintText: '0.0',
                               prefixIcon: Icon(Icons.route, color: AppTheme.primaryElectric),
                             ),
                             onChanged: (_) => setState(() {}),
@@ -332,7 +339,8 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                             controller: _hoursController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Horas Trabalhadas',
+                              labelText: 'Horas (h)',
+                              hintText: 'Ex: 8.0',
                               prefixIcon: Icon(Icons.schedule, color: AppTheme.textMuted),
                             ),
                             onChanged: (_) => setState(() {}),
@@ -370,6 +378,7 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
                               labelText: 'Carregamento (€)',
+                              hintText: '0.00',
                               prefixIcon: Icon(Icons.electric_bolt, color: AppTheme.primaryElectric),
                             ),
                             onChanged: (_) => setState(() {}),
@@ -382,6 +391,7 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
                               labelText: 'Energia (kWh)',
+                              hintText: '0.0',
                               prefixIcon: Icon(Icons.battery_charging_full, color: AppTheme.accentGreen),
                             ),
                             onChanged: (_) => setState(() {}),
@@ -397,7 +407,8 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                             controller: _tollsController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Portagens / Via Verde (€)',
+                              labelText: 'Portagens (€)',
+                              hintText: '0.00',
                               prefixIcon: Icon(Icons.toll, color: AppTheme.textMuted),
                             ),
                             onChanged: (_) => setState(() {}),
@@ -409,7 +420,8 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                             controller: _otherExpensesController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Outros (€) (Lavagem, etc)',
+                              labelText: 'Outros (€)',
+                              hintText: '0.00',
                               prefixIcon: Icon(Icons.receipt_long, color: AppTheme.textMuted),
                             ),
                             onChanged: (_) => setState(() {}),
@@ -422,6 +434,7 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                       controller: _notesController,
                       decoration: const InputDecoration(
                         labelText: 'Notas do Dia (opcional)',
+                        hintText: 'Ex: Turno calmo, chuva à noite...',
                         prefixIcon: Icon(Icons.note_alt_outlined, color: AppTheme.textMuted),
                       ),
                     ),
