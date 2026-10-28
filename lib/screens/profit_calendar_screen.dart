@@ -1323,11 +1323,6 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
             ),
           );
         },
-                ],
-              ),
-            ),
-          );
-        },
       ),
     );
   }
