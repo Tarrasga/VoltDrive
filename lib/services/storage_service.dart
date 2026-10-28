@@ -4,6 +4,7 @@ import '../models/vehicle_profile.dart';
 import '../models/daily_shift.dart';
 import '../models/driving_session.dart';
 import '../models/financial_goals.dart';
+import 'cloud_sync_service.dart';
 
 class StorageService {
   static const String _keyVehicleProfile = 'voltdrive_vehicle_profile';
@@ -29,7 +30,11 @@ class StorageService {
   static Future<bool> saveFinancialGoals(FinancialGoals goals) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = jsonEncode(goals.toJson());
-    return await prefs.setString(_keyFinancialGoals, jsonString);
+    final res = await prefs.setString(_keyFinancialGoals, jsonString);
+    if (CloudSyncService.isLoggedIn) {
+      CloudSyncService.syncAllToCloud();
+    }
+    return res;
   }
 
   // Carregar perfil do veículo
@@ -51,7 +56,11 @@ class StorageService {
   static Future<bool> saveVehicleProfile(VehicleProfile profile) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = jsonEncode(profile.toJson());
-    return await prefs.setString(_keyVehicleProfile, jsonString);
+    final res = await prefs.setString(_keyVehicleProfile, jsonString);
+    if (CloudSyncService.isLoggedIn) {
+      CloudSyncService.syncAllToCloud();
+    }
+    return res;
   }
 
   // Carregar todos os turnos diários financeiros
@@ -85,6 +94,10 @@ class StorageService {
 
     final listJson = shifts.map((s) => jsonEncode(s.toJson())).toList();
     await prefs.setStringList(_keyShifts, listJson);
+
+    if (CloudSyncService.isLoggedIn) {
+      CloudSyncService.syncAllToCloud();
+    }
   }
 
   // Apagar um turno
@@ -94,6 +107,10 @@ class StorageService {
     shifts.removeWhere((s) => s.id == shiftId);
     final listJson = shifts.map((s) => jsonEncode(s.toJson())).toList();
     await prefs.setStringList(_keyShifts, listJson);
+
+    if (CloudSyncService.isLoggedIn) {
+      CloudSyncService.syncAllToCloud();
+    }
   }
 
   // Obter turnos de um determinado mês

@@ -5,6 +5,7 @@ import 'screens/auth_lock_screen.dart';
 import 'screens/auth_register_screen.dart';
 import 'screens/home_navigation_screen.dart';
 import 'services/auth_service.dart';
+import 'services/cloud_sync_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -33,6 +34,12 @@ void main() async {
 
   // Inicializar serviço de autenticação e proteção de dados
   await AuthService.init();
+
+  // Inicializar sincronização na nuvem (Supabase)
+  await CloudSyncService.init();
+  if (CloudSyncService.isLoggedIn) {
+    CloudSyncService.pullAllFromCloud();
+  }
 
   runApp(const VoltDriveApp());
 }

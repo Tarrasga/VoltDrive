@@ -94,26 +94,22 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.37"
-          name: "VoltDrive v1.0.37 (Contas Simplificadas, Campos Limpos e Backup/Troca de Telemóvel)"
+          tag_name: "v1.0.38"
+          name: "VoltDrive v1.0.38 (Sincronização Cloud Supabase em Tempo Real)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.37 - Contas Simplificadas, Campos Limpos e Transferência de Dados
+            ## ⚡ VoltDrive v1.0.38 - Sincronização Cloud Automática com Supabase
 
             ### 🚀 Novidades:
-            1. **💰 Contas Simplificadas ("O dinheiro que fica para mim")**:
-               - Removida a separação manual e taxas de Uber e Bolt nos registos diários.
-               - Agora basta introduzir o valor real que fica para o condutor (dinheiro que entra na conta).
-               - Lucro Líquido Real calculado diretamente: `Dinheiro Ganho - Despesas Reais (Carregamento Zoe + Portagens + Outros)`.
-            2. **🧹 Limpeza Total de Campos Pré-preenchidos**:
-               - Removidos todos os valores fictícios (95€, 80€, 124500km, etc.) dos formulários de Fecho do Dia, Calendário de Lucros, Simulador de Viagens e Metas.
-               - Todos os campos iniciam agora vazios com sugestões (hints) claras e intuitivas.
-            3. **🔄 Cópia de Segurança & Troca de Telemóvel (Backup & Restore)**:
-               - Nova funcionalidade nas Definições para exportar cópia completa de todos os dados (turnos, histórico, metas, veículo) para o Google Drive, WhatsApp ou ficheiro.
-               - Opção de restaurar tudo num telemóvel novo em apenas 2 segundos sem perda de histórico.
-            4. **📄 PDF Mensal Atualizado**:
-               - Tabela e resumo formatados com base no dinheiro líquido ganho, km rodados, consumo do Renault Zoe e despesas.
+            1. **☁️ Sincronização em Nuvem em Tempo Real (Supabase)**:
+               - Integração direta com a base de dados PostgreSQL na nuvem do utilizador.
+               - Início de sessão e criação de conta com Email e Palavra-passe diretamente na app.
+               - Sincronização automática em segundo plano: qualquer turno guardado é enviado para a nuvem.
+               - Suporte total a troca de telemóvel: basta iniciar sessão no novo telemóvel e todos os turnos, histórico e configurações do Renault Zoe são descarregados instantaneamente.
+               - Modo Offline-first: funciona perfeitamente sem rede (garagens/túneis) e sincroniza assim que houver ligação à internet.
+            2. **💰 Contas Simplificadas e Limpeza de Campos**:
+               - Removida a separação forçada Uber/Bolt e campos pré-preenchidos com números fictícios.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

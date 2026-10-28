@@ -3,6 +3,7 @@ import '../models/vehicle_profile.dart';
 import '../models/financial_goals.dart';
 import '../services/assistant_service.dart';
 import '../services/auth_service.dart';
+import '../services/cloud_sync_service.dart';
 import '../services/storage_service.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
@@ -206,6 +207,188 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showCloudAuthDialog() {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    bool isLoginTab = true;
+    bool isWorking = false;
+    String? errorMsg;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.darkCard,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (dlgCtx, setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(dlgCtx).viewInsets.bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.cloud_sync_rounded, color: AppTheme.accentGreen, size: 24),
+                          const SizedBox(width: 8),
+                          Text(
+                            isLoginTab ? 'Iniciar Sessão na Nuvem' : 'Criar Conta na Nuvem',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppTheme.textMuted),
+                        onPressed: () => Navigator.pop(dlgCtx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    isLoginTab
+                        ? 'Introduz os teus dados para recuperar e sincronizar todos os teus turnos e configurações.'
+                        : 'Cria uma conta para que todos os teus fechos de dia e metas fiquem protegidos na tua nuvem Supabase.',
+                    style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // SELETOR TABS
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Center(child: Text('Iniciar Sessão')),
+                          selected: isLoginTab,
+                          onSelected: (val) {
+                            setModalState(() {
+                              isLoginTab = true;
+                              errorMsg = null;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Center(child: Text('Criar Nova Conta')),
+                          selected: !isLoginTab,
+                          onSelected: (val) {
+                            setModalState(() {
+                              isLoginTab = false;
+                              errorMsg = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+                  if (errorMsg != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.dangerRed.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.dangerRed),
+                      ),
+                      child: Text(errorMsg!, style: const TextStyle(color: AppTheme.dangerRed, fontSize: 12)),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Endereço de Email',
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Palavra-passe',
+                      prefixIcon: Icon(Icons.lock_outline),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton(
+                    onPressed: isWorking ? null : () async {
+                      final email = emailCtrl.text.trim();
+                      final pass = passCtrl.text.trim();
+                      if (email.isEmpty || !email.contains('@')) {
+                        setModalState(() => errorMsg = 'Insere um endereço de email válido.');
+                        return;
+                      }
+                      if (pass.length < 6) {
+                        setModalState(() => errorMsg = 'A palavra-passe deve ter pelo menos 6 caracteres.');
+                        return;
+                      }
+
+                      setModalState(() {
+                        isWorking = true;
+                        errorMsg = null;
+                      });
+
+                      try {
+                        if (isLoginTab) {
+                          await CloudSyncService.login(email: email, password: pass);
+                        } else {
+                          await CloudSyncService.register(email: email, password: pass);
+                        }
+
+                        // Sincroniza dados locais com a cloud
+                        await CloudSyncService.syncAllToCloud();
+                        await CloudSyncService.pullAllFromCloud();
+                        await _loadProfile();
+
+                        if (mounted) Navigator.pop(dlgCtx);
+                        if (mounted) {
+                          setState(() {});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(isLoginTab ? 'Sessão iniciada! Dados sincronizados.' : 'Conta criada com sucesso! Dados sincronizados.'),
+                              backgroundColor: AppTheme.accentGreen,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setModalState(() {
+                          isWorking = false;
+                          errorMsg = e.toString().replaceAll('Exception:', '').trim();
+                        });
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accentGreen,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: isWorking
+                        ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                        : Text(isLoginTab ? 'Entrar e Sincronizar' : 'Criar Conta e Sincronizar', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -542,6 +725,123 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             },
                           ),
                         ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // CONTA CLOUD (SINCRONIZAÇÃO AUTOMÁTICA EM NUVEM)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: (CloudSyncService.isLoggedIn ? AppTheme.accentGreen : AppTheme.primaryElectric).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                CloudSyncService.isLoggedIn ? Icons.cloud_done_rounded : Icons.cloud_queue_rounded,
+                                color: CloudSyncService.isLoggedIn ? AppTheme.accentGreen : AppTheme.primaryElectric,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('Sincronização Cloud (Supabase)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (CloudSyncService.isLoggedIn ? AppTheme.accentGreen : AppTheme.textMuted).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            CloudSyncService.isLoggedIn ? 'Ativo' : 'Offline',
+                            style: TextStyle(
+                              color: CloudSyncService.isLoggedIn ? AppTheme.accentGreen : AppTheme.textMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      CloudSyncService.isLoggedIn
+                          ? 'Sessão iniciada como ${CloudSyncService.userEmail}. Os teus turnos e metas são sincronizados automaticamente na nuvem.'
+                          : 'Inicia sessão para que todos os teus turnos fiquem guardados na nuvem. Ao trocares de telemóvel, basta iniciares sessão e tudo descarrega sozinho.',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    ),
+                    const SizedBox(height: 14),
+                    if (CloudSyncService.isLoggedIn) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('A sincronizar com a nuvem...'), backgroundColor: AppTheme.primaryElectric),
+                                );
+                                await CloudSyncService.syncAllToCloud();
+                                await CloudSyncService.pullAllFromCloud();
+                                await _loadProfile();
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Sincronização concluída com sucesso!'), backgroundColor: AppTheme.accentGreen),
+                                  );
+                                  setState(() {});
+                                }
+                              },
+                              icon: const Icon(Icons.sync, size: 16),
+                              label: const Text('Sincronizar Agora', style: TextStyle(fontSize: 12)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryElectric,
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          OutlinedButton(
+                            onPressed: () async {
+                              await CloudSyncService.logout();
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Sessão terminada na nuvem.'), backgroundColor: AppTheme.warningAmber),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppTheme.dangerRed),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            ),
+                            child: const Text('Sair', style: TextStyle(color: AppTheme.dangerRed, fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      ElevatedButton.icon(
+                        onPressed: _showCloudAuthDialog,
+                        icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                        label: const Text('Iniciar Sessão / Criar Conta na Nuvem'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentGreen,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                       ),
                     ],
                   ],
