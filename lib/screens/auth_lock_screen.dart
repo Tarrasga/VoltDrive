@@ -198,14 +198,14 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AppTheme.primaryElectric.withOpacity(0.4)),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.bolt, color: AppTheme.primaryElectric, size: 14),
-              SizedBox(width: 4),
+              const Icon(Icons.bolt, color: AppTheme.primaryElectric, size: 14),
+              const SizedBox(width: 4),
               Text(
                 'Versão v${UpdateService.currentVersion}',
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppTheme.primaryElectric,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -377,14 +377,14 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
         const SizedBox(height: 24),
 
         // Rodapé de Versão
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.shield_outlined, color: AppTheme.textMuted, size: 13),
-            SizedBox(width: 5),
+            const Icon(Icons.shield_outlined, color: AppTheme.textMuted, size: 13),
+            const SizedBox(width: 5),
             Text(
               'VoltDrive v${UpdateService.currentVersion} • Renault Zoe Z.E. 50',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppTheme.textMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -521,9 +521,9 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
           child: const Text('Voltar ao Ecrã de Entrada', style: TextStyle(color: AppTheme.textMuted)),
         ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           'VoltDrive v${UpdateService.currentVersion}',
-          style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+          style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
         ),
       ],
     );
