@@ -85,6 +85,13 @@ jobs:
           git commit -m "build-log: capture compilation error log" || true
           git push origin main || true
 
+      - name: Extrair Versão do pubspec.yaml
+        id: extract_version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
+          echo "VERSION=v$VERSION" >> $GITHUB_OUTPUT
+          echo "APP_VERSION=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Guardar VoltDrive.apk como Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -94,22 +101,28 @@ jobs:
       - name: Publicar Release no GitHub com VoltDrive.apk
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.38"
-          name: "VoltDrive v1.0.38 (Sincronização Cloud Supabase em Tempo Real)"
+          tag_name: ${{ steps.extract_version.outputs.VERSION }}
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Contas sem Consumo, Paisagem & Grupos com Password)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
-            ## ⚡ VoltDrive v1.0.38 - Sincronização Cloud Automática com Supabase
+            ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
-            ### 🚀 Novidades:
-            1. **☁️ Sincronização em Nuvem em Tempo Real (Supabase)**:
-               - Integração direta com a base de dados PostgreSQL na nuvem do utilizador.
-               - Início de sessão e criação de conta com Email e Palavra-passe diretamente na app.
-               - Sincronização automática em segundo plano: qualquer turno guardado é enviado para a nuvem.
-               - Suporte total a troca de telemóvel: basta iniciar sessão no novo telemóvel e todos os turnos, histórico e configurações do Renault Zoe são descarregados instantaneamente.
-               - Modo Offline-first: funciona perfeitamente sem rede (garagens/túneis) e sincroniza assim que houver ligação à internet.
-            2. **💰 Contas Simplificadas e Limpeza de Campos**:
-               - Removida a separação forçada Uber/Bolt e campos pré-preenchidos com números fictícios.
+            ### 🚀 Novidades desta versão:
+            1. **💰 Contas sem Cálculo de Consumo do Carro**:
+               - O simulador de viagens e o assistente de ecrã não deduzem o consumo de eletricidade do carro nas contas por defeito.
+               - Lucro líquido limpo direto baseado nos ganhos reais da corrida.
+               - Interruptor rápido opcional para ativar/desativar cálculo de consumo de eletricidade.
+            2. **📱 Adaptação Total a Ecrã Vertical e Horizontal (Paisagem)**:
+               - O VoltDrive agora roda livremente entre vertical e horizontal para suportes de telemóvel no tablier do carro.
+               - Layout ergonómico de 2 colunas no simulador de viagens em modo horizontal.
+               - Barra de navegação compacta adaptada à orientação horizontal.
+            3. **🗺️ Bloqueio Inteligente de Recálculo por GPS**:
+               - Após calcular a viagem, o leitor de ecrã ignora totalmente ecrãs de navegação GPS ativa (Waze, Google Maps e mapa de rotas da Uber/Bolt).
+               - O cartão de cálculo não volta a disparar enquanto estiveres em viagem ou a seguir as indicações do GPS.
+            4. **🔒 Proteção por Palavra-passe nos Grupos de Segurança**:
+               - Criação de grupos com palavra-passe/PIN de acesso.
+               - Comunicação e radar de colegas protegidos com encriptação e hash seguro SHA-256: apenas condutores com o nome e palavra-passe do grupo podem aceder.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
