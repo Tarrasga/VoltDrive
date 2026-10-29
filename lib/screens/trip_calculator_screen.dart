@@ -757,11 +757,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
+            );
   }
 
   Widget _buildFloatingAssistantCard(bool isActive) {
