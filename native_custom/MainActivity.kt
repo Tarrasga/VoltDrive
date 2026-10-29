@@ -432,6 +432,20 @@ class MainActivity: FlutterFragmentActivity() {
                         result.error("FILE_NOT_FOUND", "Ficheiro APK não encontrado: $filePath", null)
                     }
                 }
+                "getAppVersion" -> {
+                    try {
+                        val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+                        } else {
+                            @Suppress("DEPRECATION")
+                            packageManager.getPackageInfo(packageName, 0)
+                        }
+                        val vName = pInfo.versionName ?: "1.0.41"
+                        result.success(vName)
+                    } catch (e: Exception) {
+                        result.success("1.0.41")
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

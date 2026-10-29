@@ -5,6 +5,7 @@ import '../models/daily_shift.dart';
 import '../models/driving_session.dart';
 import '../models/financial_goals.dart';
 import 'cloud_sync_service.dart';
+import 'update_service.dart';
 
 class StorageService {
   static const String _keyVehicleProfile = 'voltdrive_vehicle_profile';
@@ -211,7 +212,7 @@ class StorageService {
 
     final backup = {
       'app': 'VoltDrive',
-      'version': '1.0.37',
+      'version': UpdateService.currentVersion,
       'exportDate': DateTime.now().toIso8601String(),
       'userEmail': userEmail,
       'vehicleProfile': profile.toJson(),

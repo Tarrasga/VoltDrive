@@ -229,6 +229,16 @@ class AssistantService {
     }
   }
 
+  static Future<String> getAppVersion() async {
+    try {
+      final res = await _channel.invokeMethod<String>('getAppVersion');
+      if (res != null && res.isNotEmpty) {
+        return res;
+      }
+    } catch (_) {}
+    return '1.0.41';
+  }
+
   static Future<void> hideOverlay() async {
     try {
       await _channel.invokeMethod('hideOverlay');

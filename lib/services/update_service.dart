@@ -23,17 +23,39 @@ class AppUpdateInfo {
 }
 
 class UpdateService {
-  // Versão atual instalada da app
-  static const String currentVersion = '1.0.38';
+  // Versão padrão de fallback caso a leitura do sistema Android ainda não tenha ocorrido
+  static const String defaultVersion = '1.0.41';
+  static String _currentVersion = defaultVersion;
+
+  // Versão atual instalada da app (lida dinamicamente do sistema Android)
+  static String get currentVersion => _currentVersion;
   static const String repoUrl = 'https://api.github.com/repos/Tarrasga/VoltDrive/releases/latest';
+
+  static Future<void> init() async {
+    try {
+      final v = await AssistantService.getAppVersion();
+      if (v.isNotEmpty) {
+        _currentVersion = v;
+      }
+    } catch (_) {}
+  }
 
   static Future<AppUpdateInfo?> checkForUpdate() async {
     try {
+      // Atualizar a versão com base no Android package manager em tempo real
+      final realVersion = await AssistantService.getAppVersion();
+      if (realVersion.isNotEmpty) {
+        _currentVersion = realVersion;
+      }
+
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 5);
-      final request = await client.getUrl(Uri.parse(repoUrl));
+      final cacheBustUrl = '$repoUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+      final request = await client.getUrl(Uri.parse(cacheBustUrl));
       request.headers.set('User-Agent', 'VoltDrive-App');
       request.headers.set('Accept', 'application/vnd.github.v3+json');
+      request.headers.set('Cache-Control', 'no-cache');
+      request.headers.set('Pragma', 'no-cache');
 
       final response = await request.close();
       if (response.statusCode != 200) {
@@ -390,6 +412,16 @@ class UpdateService {
       if (!await targetDir.exists()) {
         await targetDir.create(recursive: true);
       }
+
+      // Limpar ficheiros APK antigos em cache para garantir download 100% fresco
+      try {
+        final existingFiles = targetDir.listSync();
+        for (final f in existingFiles) {
+          if (f is File && f.path.contains('VoltDrive_') && f.path.endsWith('.apk')) {
+            f.deleteSync();
+          }
+        }
+      } catch (_) {}
 
       final apkFile = File('${targetDir.path}/VoltDrive_Update.apk');
       if (await apkFile.exists()) {

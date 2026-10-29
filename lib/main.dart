@@ -6,10 +6,16 @@ import 'screens/auth_register_screen.dart';
 import 'screens/home_navigation_screen.dart';
 import 'services/auth_service.dart';
 import 'services/cloud_sync_service.dart';
+import 'services/update_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar versão real da app a partir do Android
+  try {
+    await UpdateService.init();
+  } catch (_) {}
 
   // Inicializar suporte de formatação e datas em português
   try {
