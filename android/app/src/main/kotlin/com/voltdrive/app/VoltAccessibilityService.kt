@@ -53,14 +53,24 @@ class VoltAccessibilityService : AccessibilityService() {
     private fun isTripOfferScreen(texts: List<String>): Boolean {
         val fullText = texts.joinToString(" ").lowercase(Locale.ROOT)
 
-        // 1. Termos obrigatórios que indicam uma oferta de viagem a tocar
-        val offerKeywords = listOf(
-            "aceitar", "accept", "novo pedido", "nova viagem", "nova corrida",
-            "tocar para", "deslize para", "recolha", "pickup", "embarque",
-            "uberx", "comfort", "green", "black", "bolt", "economy",
-            "viagem para", "pedido de"
+        // 1. TERMOS ESTRITOS DE NAVEGAÇÃO GPS E VIAGEM EM CURSO (IGNORAR TOTALMENTE)
+        // Quando a viagem já foi calculada/aceite e o GPS está ativo (ou waze/maps/rotas)
+        val gpsNavigationKeywords = listOf(
+            "vire", "rotunda", "saída", "siga", "conduza", "em direção", "direções",
+            "metros", "m à", "km à", "em frente", "à direita", "à esquerda",
+            "waze", "google maps", "gps", "recalculando", "em rota",
+            "iniciar viagem", "terminar viagem", "concluir viagem", "concluir",
+            "deslize para iniciar", "deslize para concluir", "deslize para confirmar",
+            "chegou ao destino", "chegou à recolha", "chegou ao embarque", "a caminho",
+            "em viagem", "contactar passageiro", "ligar ao", "cancelar viagem",
+            "paragem", "largada", "destino final", "chegada prevista", "hora de chegada",
+            "restantes", "tempo restante", "previsão"
         )
-        val hasOfferKeyword = offerKeywords.any { kw -> fullText.contains(kw) }
+        val isGpsNavigation = gpsNavigationKeywords.any { kw -> fullText.contains(kw) }
+        if (isGpsNavigation) {
+            // Em navegação GPS activa: NUNCA voltar a calcular a viagem pelo GPS!
+            return false
+        }
 
         // 2. Termos típicos do ecrã inicial / mapa sem pedidos ativos (onde aparecem estatísticas diárias e km da última corrida)
         val idleKeywords = listOf(
@@ -70,12 +80,19 @@ class VoltAccessibilityService : AccessibilityService() {
         )
         val hasIdleKeyword = idleKeywords.any { kw -> fullText.contains(kw) }
 
-        // Se tem termos de mapa/ganhos e não tem indicação clara de nova oferta ("aceitar", "novo pedido"), ignora!
-        if (hasIdleKeyword && !fullText.contains("aceitar") && !fullText.contains("novo pedido") && !fullText.contains("nova viagem")) {
+        // 3. Termos obrigatórios de uma oferta nova a tocar no ecrã para ser aceite
+        val explicitOfferKeywords = listOf(
+            "aceitar", "accept", "novo pedido", "nova viagem", "nova corrida",
+            "tocar para aceitar", "deslize para aceitar", "tocar para", "pedido de viagem"
+        )
+        val hasOfferKeyword = explicitOfferKeywords.any { kw -> fullText.contains(kw) }
+
+        // Se tem termos de mapa/ganhos ou não tem gatilho explícito de aceitação de oferta, ignora!
+        if (hasIdleKeyword || !hasOfferKeyword) {
             return false
         }
 
-        return hasOfferKeyword
+        return true
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -253,12 +270,15 @@ class VoltAccessibilityService : AccessibilityService() {
 
         // Read driver preferences from SharedPreferences
         val prefs = getSharedPreferences("VoltDrivePrefs", Context.MODE_PRIVATE)
+        val defaultPrefs = getSharedPreferences("voltdrive_prefs", Context.MODE_PRIVATE)
         val platformFeeRate = prefs.getFloat("platformFeeRate", 0.25f).toDouble()
         val energyCostPerKm = prefs.getFloat("energyCostPerKm", 0.0409f).toDouble() // Zoe 18.6 kWh/100km * 0.22€
+        val includeVehicleConsumption = defaultPrefs.getBoolean("include_vehicle_consumption", false) ||
+                                       prefs.getBoolean("includeVehicleConsumption", false)
 
-        // Profit calculations
+        // Profit calculations: se includeVehicleConsumption for false, NÃO calcula/desconta consumo do carro
         val netFare = grossFare * (1.0 - platformFeeRate)
-        val electricCost = totalDistanceKm * energyCostPerKm
+        val electricCost = if (includeVehicleConsumption) (totalDistanceKm * energyCostPerKm) else 0.0
         val netProfit = netFare - electricCost
         val netPerKm = if (totalDistanceKm > 0.0) netProfit / totalDistanceKm else 0.0
 

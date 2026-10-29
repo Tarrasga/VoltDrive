@@ -14,6 +14,7 @@ class TripCalculation {
   final double energyCostPerKm;  // Custo elétrico por km (€/km)
   final double platformFeeRate;  // Ex: 0.25 (25%)
   final double fleetFeeRate;     // Ex: 0.0 (empresa própria) ou 0.40/0.50 (parceiro)
+  final bool includeVehicleConsumption; // Se deve calcular/descontar consumo do carro
 
   TripCalculation({
     required this.grossFare,
@@ -24,6 +25,7 @@ class TripCalculation {
     required this.energyCostPerKm,
     this.platformFeeRate = 0.25,
     this.fleetFeeRate = 0.0,
+    this.includeVehicleConsumption = false, // Por defeito: não calcular consumo do carro
   });
 
   // Distância total rodada para a viagem (km)
@@ -35,8 +37,8 @@ class TripCalculation {
   // Valor do motorista após frota (se aplicável)
   double get driverShare => fareAfterPlatform * (1.0 - fleetFeeRate);
 
-  // Custo total de energia elétrica (kWh gastos x preço do kWh)
-  double get totalEnergyCost => totalDistanceKm * energyCostPerKm;
+  // Custo de energia elétrica (0.0 se não calcular consumo do carro)
+  double get totalEnergyCost => includeVehicleConsumption ? (totalDistanceKm * energyCostPerKm) : 0.0;
 
   // Custos totais diretos da viagem (eletricidade + portagens)
   double get directCosts => totalEnergyCost + tollsCost;

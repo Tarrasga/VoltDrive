@@ -16,10 +16,12 @@ void main() async {
     await initializeDateFormatting('pt_PT', null);
   } catch (_) {}
   
-  // Bloquear orientação para vertical para melhor experiência no suporte do carro
+  // Permitir rotação livre (vertical e horizontal) para adaptar a suportes de carro
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
 
   // Estilizar a barra de navegação e barra de status do Android

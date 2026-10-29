@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/trip_calculation.dart';
 import '../models/vehicle_profile.dart';
 import '../services/assistant_service.dart';
@@ -24,6 +25,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
   bool _usePublicCharging = true;
   bool _isPrivateTrip = false;
   bool _isLoading = true;
+  bool _includeVehicleConsumption = false; // Por defeito: não calcular consumo do carro nas contas
   int _overlayTimeoutSeconds = 12;
 
   bool _overlayGranted = false;
@@ -78,12 +80,23 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
   Future<void> _loadProfile() async {
     final prof = await StorageService.loadVehicleProfile();
     await AssistantService.syncSettings(prof);
+    final prefs = await SharedPreferences.getInstance();
+    final incCons = prefs.getBool('include_vehicle_consumption') ?? false;
     if (mounted) {
       setState(() {
         _profile = prof;
+        _includeVehicleConsumption = incCons;
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _setIncludeConsumption(bool val) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('include_vehicle_consumption', val);
+    setState(() {
+      _includeVehicleConsumption = val;
+    });
   }
 
   TripCalculation _calculate() {
@@ -109,6 +122,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
       energyCostPerKm: energyCostPerKm,
       platformFeeRate: platformRate,
       fleetFeeRate: fleetRate,
+      includeVehicleConsumption: _includeVehicleConsumption,
     );
   }
 
@@ -150,8 +164,12 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
     final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
     final trip = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
     final total = pickup + trip;
-    if (rate > 0 && total > 0) {
+    final currentFare = double.tryParse(_fareController.text.replaceAll(',', '.')) ?? 0.0;
+    // Se já tiver valor da viagem calculado, não voltar a calcular por cima
+    if (rate > 0 && total > 0 && currentFare <= 0) {
       _fareController.text = (total * rate).toStringAsFixed(2);
+    } else if (total > 0 && currentFare > 0) {
+      _ratePerKmController.text = (currentFare / total).toStringAsFixed(2);
     }
     setState(() {});
   }
@@ -173,11 +191,11 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
     final current = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
     final next = (current + delta).clamp(0.0, 999.0);
     _tripDistController.text = next.toStringAsFixed(1);
-    final rate = double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0;
+    final currentFare = double.tryParse(_fareController.text.replaceAll(',', '.')) ?? 0.0;
     final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
     final total = pickup + next;
-    if (rate > 0 && total > 0) {
-      _fareController.text = (total * rate).toStringAsFixed(2);
+    if (total > 0 && currentFare > 0) {
+      _ratePerKmController.text = (currentFare / total).toStringAsFixed(2);
     }
     setState(() {});
   }
@@ -222,6 +240,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
     final verdictIcon = isEmptyState ? Icons.calculate_outlined : _getVerdictIcon(calc.verdict);
     final verdictText = isEmptyState ? 'Aguardar Valores' : calc.verdictText;
     final isAssistantActive = _overlayGranted && _accessibilityEnabled && !_isReaderPaused;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
       appBar: AppBar(
@@ -236,155 +255,252 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // CARTÃO DO ASSISTENTE FLUTUANTE (LEITOR AUTOMÁTICO UBER & BOLT)
-            _buildFloatingAssistantCard(isAssistantActive),
-
-            const SizedBox(height: 16),
-
-            // CARTÃO DE RESULTADO E VEREDITO (Topo em Destaque)
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: AppTheme.darkCard,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: verdictColor, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: verdictColor.withOpacity(0.2),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+        child: isLandscape
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildFloatingAssistantCard(isAssistantActive),
+                        const SizedBox(height: 14),
+                        _buildVerdictSummaryCard(calc, isEmptyState, verdictColor, verdictIcon, verdictText),
+                        const SizedBox(height: 14),
+                        _buildChargingAndConsumptionCard(calc),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 6,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildInputsCard(calc),
+                        const SizedBox(height: 12),
+                        _buildDriverTipCard(),
+                      ],
+                    ),
                   ),
                 ],
-              ),
-              child: Column(
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(verdictIcon, color: verdictColor, size: 28),
-                          const SizedBox(width: 8),
-                          Text(
-                            verdictText,
-                            style: TextStyle(
-                              color: verdictColor,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: verdictColor.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          isEmptyState ? '0.00 € / km' : '${calc.netProfitPerKm.toStringAsFixed(2)} € / km',
-                          style: TextStyle(
-                            color: verdictColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _buildFloatingAssistantCard(isAssistantActive),
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildMetricColumn(
-                        label: 'Lucro Líquido',
-                        value: '${calc.netProfit.toStringAsFixed(2)} €',
-                        color: verdictColor,
-                        isLarge: true,
-                      ),
-                      Container(width: 1, height: 45, color: AppTheme.darkBorder),
-                      _buildMetricColumn(
-                        label: 'Custo Energia',
-                        value: '${calc.totalEnergyCost.toStringAsFixed(2)} €',
-                        color: AppTheme.primaryElectric,
-                      ),
-                      Container(width: 1, height: 45, color: AppTheme.darkBorder),
-                      _buildMetricColumn(
-                        label: 'Ritmo / Hora',
-                        value: '${calc.netProfitPerHour.toStringAsFixed(1)} €/h',
-                        color: AppTheme.textPrimary,
-                      ),
-                    ],
-                  ),
-                  const Divider(color: AppTheme.darkBorder, height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Total: ${calc.totalDistanceKm.toStringAsFixed(1)} km (${calc.pickupDistanceKm.toStringAsFixed(1)} recolha + ${calc.tripDistanceKm.toStringAsFixed(1)} viagem)',
-                        style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
-                      ),
-                      Text(
-                        'Gasto: ${(calc.totalDistanceKm * (_profile.avgConsumptionKwh100 / 100.0)).toStringAsFixed(1)} kWh',
-                        style: const TextStyle(color: AppTheme.primaryElectric, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
+                  _buildVerdictSummaryCard(calc, isEmptyState, verdictColor, verdictIcon, verdictText),
+                  const SizedBox(height: 16),
+                  _buildChargingAndConsumptionCard(calc),
+                  const SizedBox(height: 16),
+                  _buildInputsCard(calc),
+                  const SizedBox(height: 12),
+                  _buildDriverTipCard(),
                 ],
               ),
-            ),
+      ),
+    );
+  }
 
-            const SizedBox(height: 16),
-
-            // SELETOR RÁPIDO DO TIPO DE CARREGAMENTO
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.darkCard,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.darkBorder),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildVerdictSummaryCard(
+    TripCalculation calc,
+    bool isEmptyState,
+    Color verdictColor,
+    IconData verdictIcon,
+    String verdictText,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.darkCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: verdictColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: verdictColor.withOpacity(0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 children: [
-                  const Text('Preço Carregamento:', style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
-                  Row(
-                    children: [
-                      ChoiceChip(
-                        label: Text('Posto (${_profile.publicKwhPrice.toStringAsFixed(2)}€)'),
-                        selected: _usePublicCharging,
-                        selectedColor: AppTheme.primaryElectric.withOpacity(0.2),
-                        labelStyle: TextStyle(
-                          color: _usePublicCharging ? AppTheme.primaryElectric : AppTheme.textMuted,
-                          fontSize: 12,
-                        ),
-                        onSelected: (val) => setState(() => _usePublicCharging = true),
-                      ),
-                      const SizedBox(width: 6),
-                      ChoiceChip(
-                        label: Text('Casa (${_profile.homeKwhPrice.toStringAsFixed(2)}€)'),
-                        selected: !_usePublicCharging,
-                        selectedColor: AppTheme.accentGreen.withOpacity(0.2),
-                        labelStyle: TextStyle(
-                          color: !_usePublicCharging ? AppTheme.accentGreen : AppTheme.textMuted,
-                          fontSize: 12,
-                        ),
-                        onSelected: (val) => setState(() => _usePublicCharging = false),
-                      ),
-                    ],
+                  Icon(verdictIcon, color: verdictColor, size: 28),
+                  const SizedBox(width: 8),
+                  Text(
+                    verdictText,
+                    style: TextStyle(
+                      color: verdictColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: verdictColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  isEmptyState ? '0.00 € / km' : '${calc.netProfitPerKm.toStringAsFixed(2)} € / km',
+                  style: TextStyle(
+                    color: verdictColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildMetricColumn(
+                label: 'Lucro Líquido',
+                value: '${calc.netProfit.toStringAsFixed(2)} €',
+                color: verdictColor,
+                isLarge: true,
+              ),
+              Container(width: 1, height: 45, color: AppTheme.darkBorder),
+              _buildMetricColumn(
+                label: _includeVehicleConsumption ? 'Custo Energia' : 'Valor Faturado',
+                value: _includeVehicleConsumption
+                    ? '${calc.totalEnergyCost.toStringAsFixed(2)} €'
+                    : '${calc.grossFare.toStringAsFixed(2)} €',
+                color: AppTheme.primaryElectric,
+              ),
+              Container(width: 1, height: 45, color: AppTheme.darkBorder),
+              _buildMetricColumn(
+                label: 'Ritmo / Hora',
+                value: '${calc.netProfitPerHour.toStringAsFixed(1)} €/h',
+                color: AppTheme.textPrimary,
+              ),
+            ],
+          ),
+          const Divider(color: AppTheme.darkBorder, height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total: ${calc.totalDistanceKm.toStringAsFixed(1)} km (${calc.pickupDistanceKm.toStringAsFixed(1)} rec. + ${calc.tripDistanceKm.toStringAsFixed(1)} viag.)',
+                style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+              ),
+              Text(
+                _includeVehicleConsumption
+                    ? 'Gasto: ${(calc.totalDistanceKm * (_profile.avgConsumptionKwh100 / 100.0)).toStringAsFixed(1)} kWh'
+                    : '⚡ Sem dedução de consumo',
+                style: TextStyle(
+                  color: _includeVehicleConsumption ? AppTheme.primaryElectric : AppTheme.accentGreen,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChargingAndConsumptionCard(TripCalculation calc) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.darkCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Calcular Consumo do Carro', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            subtitle: Text(
+              _includeVehicleConsumption
+                  ? 'A descontar ${(calc.totalDistanceKm * _profile.energyCostPerKmPublic).toStringAsFixed(2)}€ de energia no lucro'
+                  : 'Desativado: nas contas o lucro não desconta o consumo do carro',
+              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
             ),
+            value: _includeVehicleConsumption,
+            activeColor: AppTheme.accentGreen,
+            onChanged: (val) => _setIncludeConsumption(val),
+          ),
+          if (_includeVehicleConsumption) ...[
+            const Divider(color: AppTheme.darkBorder),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Tarifário Carregamento:', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: Text('Posto (${_profile.publicKwhPrice.toStringAsFixed(2)}€)'),
+                      selected: _usePublicCharging,
+                      selectedColor: AppTheme.primaryElectric.withOpacity(0.2),
+                      labelStyle: TextStyle(
+                        color: _usePublicCharging ? AppTheme.primaryElectric : AppTheme.textMuted,
+                        fontSize: 11,
+                      ),
+                      onSelected: (val) => setState(() => _usePublicCharging = true),
+                    ),
+                    const SizedBox(width: 6),
+                    ChoiceChip(
+                      label: Text('Casa (${_profile.homeKwhPrice.toStringAsFixed(2)}€)'),
+                      selected: !_usePublicCharging,
+                      selectedColor: AppTheme.accentGreen.withOpacity(0.2),
+                      labelStyle: TextStyle(
+                        color: !_usePublicCharging ? AppTheme.accentGreen : AppTheme.textMuted,
+                        fontSize: 11,
+                      ),
+                      onSelected: (val) => setState(() => _usePublicCharging = false),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 16),
+  Widget _buildDriverTipCard() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.darkBorder),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: AppTheme.primaryElectric, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Retenção da app: ${_profile.platformFeePercent.toStringAsFixed(0)}% | Consumo Zoe: ${_profile.avgConsumptionKwh100} kWh/100km. Podes personalizar estes valores no separador Definições.',
+              style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // INPUTS RÁPIDOS
-            Card(
-              child: Padding(
+  Widget _buildInputsCard(TripCalculation calc) {
+    return Card(
+      child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -640,30 +756,6 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                     ),
                   ],
                 ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // DICA PARA O CONDUTOR
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blueGrey.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.darkBorder),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: AppTheme.primaryElectric, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Retenção da app: ${_profile.platformFeePercent.toStringAsFixed(0)}% | Consumo Zoe: ${_profile.avgConsumptionKwh100} kWh/100km. Podes personalizar estes valores no separador Definições.',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                    ),
-                  ),
-                ],
               ),
             ),
           ],

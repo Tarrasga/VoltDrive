@@ -59,6 +59,7 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
   Widget build(BuildContext context) {
     final incomingSos = BuddySafetyService.activeIncomingSos;
     final isMySos = BuddySafetyService.isMySosActive;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
       body: Column(
@@ -122,37 +123,77 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
           size: 20,
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calculate_outlined),
-            activeIcon: Icon(Icons.calculate),
-            label: 'Calculadora',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.timer_outlined),
-            activeIcon: Icon(Icons.timer),
-            label: 'Horas TVDE',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.ev_station_outlined),
-            activeIcon: Icon(Icons.ev_station),
-            label: 'Postos VE',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_month_outlined),
-            activeIcon: Icon(Icons.calendar_month),
-            label: 'Lucros & Mês',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: 'Definições',
-          ),
-        ],
-      ),
+      bottomNavigationBar: isLandscape
+          ? SizedBox(
+              height: 52,
+              child: BottomNavigationBar(
+                type: BottomNavigationBarType.fixed,
+                iconSize: 20,
+                selectedFontSize: 11,
+                unselectedFontSize: 10,
+                currentIndex: _currentIndex,
+                onTap: (index) => setState(() => _currentIndex = index),
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.calculate_outlined),
+                    activeIcon: Icon(Icons.calculate),
+                    label: 'Calculadora',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.timer_outlined),
+                    activeIcon: Icon(Icons.timer),
+                    label: 'Horas TVDE',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.ev_station_outlined),
+                    activeIcon: Icon(Icons.ev_station),
+                    label: 'Postos VE',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.calendar_month_outlined),
+                    activeIcon: Icon(Icons.calendar_month),
+                    label: 'Lucros & Mês',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.settings_outlined),
+                    activeIcon: Icon(Icons.settings),
+                    label: 'Definições',
+                  ),
+                ],
+              ),
+            )
+          : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() => _currentIndex = index),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.calculate_outlined),
+                  activeIcon: Icon(Icons.calculate),
+                  label: 'Calculadora',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.timer_outlined),
+                  activeIcon: Icon(Icons.timer),
+                  label: 'Horas TVDE',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.ev_station_outlined),
+                  activeIcon: Icon(Icons.ev_station),
+                  label: 'Postos VE',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.calendar_month_outlined),
+                  activeIcon: Icon(Icons.calendar_month),
+                  label: 'Lucros & Mês',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.settings_outlined),
+                  activeIcon: Icon(Icons.settings),
+                  label: 'Definições',
+                ),
+              ],
+            ),
     );
   }
 }

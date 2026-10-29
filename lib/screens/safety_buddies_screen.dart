@@ -15,8 +15,10 @@ class SafetyBuddiesScreen extends StatefulWidget {
 class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
   LocationResult? _myLocation;
   bool _isLoadingLoc = false;
+  bool _obscurePassword = true;
 
   final TextEditingController _teamCodeController = TextEditingController();
+  final TextEditingController _teamPasswordController = TextEditingController();
   final TextEditingController _driverNameController = TextEditingController();
   final TextEditingController _emergencyPhoneController = TextEditingController();
 
@@ -31,6 +33,7 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
   void dispose() {
     BuddySafetyService.updatesNotifier.removeListener(_onServiceUpdate);
     _teamCodeController.dispose();
+    _teamPasswordController.dispose();
     _driverNameController.dispose();
     _emergencyPhoneController.dispose();
     super.dispose();
@@ -43,6 +46,7 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
   Future<void> _loadData() async {
     await BuddySafetyService.loadConfig();
     _teamCodeController.text = BuddySafetyService.teamCode;
+    _teamPasswordController.text = BuddySafetyService.teamPassword;
     _driverNameController.text = BuddySafetyService.driverName;
     _emergencyPhoneController.text = BuddySafetyService.emergencyPhone;
     _refreshLocation();
@@ -374,17 +378,38 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppTheme.darkCard,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          title: const Text('Definições da Equipa & SOS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          title: const Text('Definições do Grupo & SOS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 TextField(
                   controller: _teamCodeController,
                   decoration: const InputDecoration(
-                    labelText: 'Código da Equipa (Partilhar com Amigos)',
+                    labelText: 'Nome / Código do Grupo',
+                    hintText: 'Ex: TVDE-LISBOA, FROTA-ZOE',
                     prefixIcon: Icon(Icons.group_outlined, color: AppTheme.primaryElectric),
                   ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _teamPasswordController,
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Palavra-passe do Grupo (Proteção)',
+                    hintText: 'Deixa vazio se for grupo aberto',
+                    prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.primaryElectric),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: AppTheme.textMuted),
+                      onPressed: () => setDialogState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '🔒 Apenas quem tiver o mesmo código e palavra-passe acederá aos alertas e ao radar do grupo.',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -432,6 +457,7 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
               onPressed: () async {
                 await BuddySafetyService.saveConfig(
                   newTeamCode: _teamCodeController.text,
+                  newTeamPassword: _teamPasswordController.text,
                   newDriverName: _driverNameController.text,
                   newEmergencyPhone: _emergencyPhoneController.text,
                   newDiscreetMode: BuddySafetyService.isDiscreetMode,
@@ -780,16 +806,43 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
                   const Text('Radar de Colegas Ativos', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppTheme.darkSurface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.darkBorder),
-                ),
-                child: Text(
-                  'Canal: ${BuddySafetyService.teamCode}',
-                  style: const TextStyle(color: AppTheme.primaryElectric, fontSize: 11, fontWeight: FontWeight.bold),
+              InkWell(
+                onTap: _openSettingsDialog,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.darkSurface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: BuddySafetyService.teamPassword.isNotEmpty
+                          ? AppTheme.accentGreen.withOpacity(0.6)
+                          : AppTheme.darkBorder,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        BuddySafetyService.teamPassword.isNotEmpty ? Icons.lock : Icons.lock_open,
+                        size: 12,
+                        color: BuddySafetyService.teamPassword.isNotEmpty
+                            ? AppTheme.accentGreen
+                            : AppTheme.textMuted,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${BuddySafetyService.teamCode}${BuddySafetyService.teamPassword.isNotEmpty ? ' (Protegido)' : ''}',
+                        style: TextStyle(
+                          color: BuddySafetyService.teamPassword.isNotEmpty
+                              ? AppTheme.accentGreen
+                              : AppTheme.primaryElectric,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

@@ -108,8 +108,17 @@ object OverlayManager {
                 WindowManager.LayoutParams.TYPE_PHONE
             }
 
+            val displayMetrics = appContext.resources.displayMetrics
+            val isLandscape = displayMetrics.widthPixels > displayMetrics.heightPixels
+            val overlayWidth = if (isLandscape) {
+                // Em horizontal, limita a largura a 460dp para apresentação elegante
+                dpToPx(appContext, 460f).coerceAtMost(displayMetrics.widthPixels)
+            } else {
+                WindowManager.LayoutParams.MATCH_PARENT
+            }
+
             val params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
+                overlayWidth,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 layoutType,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -285,13 +294,23 @@ object OverlayManager {
 
             // Details Footer Row
             val footerRow = TextView(appContext).apply {
-                text = String.format(
-                    Locale.ROOT,
-                    "Bruto: %.2f €  |  Distância: %.1f km  |  Custo Zoe: -%.2f €",
-                    grossFare,
-                    distanceKm,
-                    electricCost
-                )
+                text = if (electricCost > 0.0) {
+                    String.format(
+                        Locale.ROOT,
+                        "Bruto: %.2f €  |  Distância: %.1f km  |  Custo Zoe: -%.2f €",
+                        grossFare,
+                        distanceKm,
+                        electricCost
+                    )
+                } else {
+                    String.format(
+                        Locale.ROOT,
+                        "Bruto: %.2f €  |  Líquido: %.2f €  |  Distância: %.1f km",
+                        grossFare,
+                        netProfit,
+                        distanceKm
+                    )
+                }
                 textSize = 11f
                 setTextColor(Color.parseColor("#94A3B8"))
                 setPadding(0, dpToPx(appContext, 4f), 0, 0)

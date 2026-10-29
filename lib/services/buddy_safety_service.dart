@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/buddy_member.dart';
@@ -9,6 +10,7 @@ import 'assistant_service.dart';
 
 class BuddySafetyService {
   static const String _keyTeamCode = 'safety_team_code';
+  static const String _keyTeamPassword = 'safety_team_password';
   static const String _keyDriverName = 'safety_driver_name';
   static const String _keyEmergencyPhone = 'safety_emergency_phone';
   static const String _keyEmergencyContacts = 'safety_emergency_contacts';
@@ -16,10 +18,23 @@ class BuddySafetyService {
   static const String _keySharingActive = 'safety_sharing_active';
 
   static String teamCode = 'ZOE-PORTUGAL';
+  static String teamPassword = '';
   static String driverName = 'Condutor Zoe';
   static String emergencyPhone = '';
   static bool isDiscreetMode = true;
   static bool isSharingActive = true;
+
+  // Canal seguro derivado com nome e palavra-passe
+  static String get effectiveChannelTopic {
+    final cleanCode = teamCode.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9_-]'), '-');
+    final cleanPass = teamPassword.trim();
+    if (cleanPass.isEmpty) {
+      return 'voltdrive-team-$cleanCode';
+    }
+    // Com palavra-passe: deriva um hash único sha256 de 12 caracteres (isolamento total)
+    final hash = sha256.convert(utf8.encode('${cleanCode}_$cleanPass')).toString().substring(0, 12);
+    return 'voltdrive-sec-$cleanCode-$hash';
+  }
 
   static bool isMySosActive = false;
   static BuddyMember? activeIncomingSos;
@@ -34,6 +49,7 @@ class BuddySafetyService {
   static Future<void> loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
     teamCode = prefs.getString(_keyTeamCode) ?? 'ZOE-PORTUGAL';
+    teamPassword = prefs.getString(_keyTeamPassword) ?? '';
     driverName = prefs.getString(_keyDriverName) ?? 'Condutor Zoe';
     emergencyPhone = prefs.getString(_keyEmergencyPhone) ?? '';
     isDiscreetMode = prefs.getBool(_keyDiscreetMode) ?? true;
@@ -66,6 +82,7 @@ class BuddySafetyService {
 
   static Future<void> saveConfig({
     required String newTeamCode,
+    String newTeamPassword = '',
     required String newDriverName,
     required String newEmergencyPhone,
     required bool newDiscreetMode,
@@ -73,6 +90,7 @@ class BuddySafetyService {
   }) async {
     teamCode = newTeamCode.trim().toUpperCase().replaceAll(' ', '-');
     if (teamCode.isEmpty) teamCode = 'ZOE-PORTUGAL';
+    teamPassword = newTeamPassword.trim();
     driverName = newDriverName.trim().isEmpty ? 'Condutor Zoe' : newDriverName.trim();
     emergencyPhone = newEmergencyPhone.trim();
     isDiscreetMode = newDiscreetMode;
@@ -80,12 +98,15 @@ class BuddySafetyService {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyTeamCode, teamCode);
+    await prefs.setString(_keyTeamPassword, teamPassword);
     await prefs.setString(_keyDriverName, driverName);
     await prefs.setString(_keyEmergencyPhone, emergencyPhone);
     await prefs.setBool(_keyDiscreetMode, isDiscreetMode);
     await prefs.setBool(_keySharingActive, isSharingActive);
 
+    colleagues.clear();
     updatesNotifier.value++;
+    startPolling();
   }
 
   static Future<void> addEmergencyContact(String name, String phone) async {
@@ -132,7 +153,7 @@ class BuddySafetyService {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 4);
 
-      final topic = 'voltdrive-team-${teamCode.toLowerCase()}';
+      final topic = effectiveChannelTopic;
       final url = Uri.parse('https://ntfy.sh');
       final request = await client.postUrl(url);
       request.headers.contentType = ContentType.json;
@@ -144,6 +165,7 @@ class BuddySafetyService {
           'type': 'ping',
           'id': 'driver-${driverName.hashCode}',
           'name': driverName,
+          'has_pass': teamPassword.isNotEmpty,
           'lat': loc.latitude,
           'lng': loc.longitude,
           'battery': battery,
@@ -170,7 +192,7 @@ class BuddySafetyService {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 5);
 
-      final topic = 'voltdrive-team-${teamCode.toLowerCase()}';
+      final topic = effectiveChannelTopic;
       final url = Uri.parse('https://ntfy.sh');
       final request = await client.postUrl(url);
       request.headers.contentType = ContentType.json;
@@ -209,7 +231,7 @@ class BuddySafetyService {
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 5);
-      final topic = 'voltdrive-team-${teamCode.toLowerCase()}';
+      final topic = effectiveChannelTopic;
       final url = Uri.parse('https://ntfy.sh');
       final request = await client.postUrl(url);
       request.headers.contentType = ContentType.json;
@@ -233,7 +255,7 @@ class BuddySafetyService {
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 5);
-      final topic = 'voltdrive-team-${teamCode.toLowerCase()}';
+      final topic = effectiveChannelTopic;
       final url = Uri.parse('https://ntfy.sh/$topic/json?poll=1&since=10m');
 
       final request = await client.getUrl(url);
