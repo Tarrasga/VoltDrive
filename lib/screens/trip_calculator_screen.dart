@@ -86,6 +86,9 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
       setState(() {
         _profile = prof;
         _includeVehicleConsumption = incCons;
+        if (_ratePerKmController.text.isEmpty) {
+          _ratePerKmController.text = '0.45'; // Mínimo legal TVDE
+        }
         _isLoading = false;
       });
     }
@@ -100,11 +103,22 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
   }
 
   TripCalculation _calculate() {
-    final fare = double.tryParse(_fareController.text.replaceAll(',', '.')) ?? 0.0;
+    var fare = double.tryParse(_fareController.text.replaceAll(',', '.')) ?? 0.0;
     final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
     final tripDist = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
+    final totalDist = pickup + tripDist;
     final duration = double.tryParse(_durationController.text.replaceAll(',', '.')) ?? 15.0;
     final tolls = double.tryParse(_tollsController.text.replaceAll(',', '.')) ?? 0.0;
+
+    var rate = double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0;
+    if (rate <= 0.0) {
+      rate = 0.45; // Mínimo de 0.45 €/km
+    }
+
+    // Se o condutor indicou quilómetros mas ainda não escreveu o valor da viagem, calcula automaticamente pela taxa!
+    if (fare <= 0.0 && totalDist > 0.0) {
+      fare = totalDist * rate;
+    }
 
     final energyCostPerKm = _usePublicCharging
         ? _profile.energyCostPerKmPublic
@@ -130,22 +144,28 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
     final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
     final tripDist = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
     final totalDist = pickup + tripDist;
-    final calculatedFare = (totalDist > 0 ? totalDist : 10.0) * rate;
+    final distToUse = totalDist > 0.0 ? totalDist : 10.0;
+    if (totalDist <= 0.0) {
+      _tripDistController.text = '10.0';
+    }
+    final calculatedFare = distToUse * rate;
     _ratePerKmController.text = rate.toStringAsFixed(2);
     _fareController.text = calculatedFare.toStringAsFixed(2);
     setState(() {});
   }
 
   void _recalculateFareFromRate() {
-    final rate = double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0;
+    var rate = double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0;
+    if (rate <= 0.0) rate = 0.45;
     final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
     final tripDist = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
     final totalDist = pickup + tripDist;
-    if (rate > 0 && totalDist > 0) {
-      final calculatedFare = totalDist * rate;
-      _fareController.text = calculatedFare.toStringAsFixed(2);
-      setState(() {});
+    final distToUse = totalDist > 0.0 ? totalDist : 10.0;
+    if (totalDist <= 0.0) {
+      _tripDistController.text = '10.0';
     }
+    _fareController.text = (distToUse * rate).toStringAsFixed(2);
+    setState(() {});
   }
 
   void _onFareChanged(String val) {
@@ -160,15 +180,20 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
   }
 
   void _onDistanceChanged() {
-    final rate = double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0;
     final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
     final trip = double.tryParse(_tripDistController.text.replaceAll(',', '.')) ?? 0.0;
     final total = pickup + trip;
+    var rate = double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0;
+    if (rate <= 0.0) {
+      rate = 0.45;
+      _ratePerKmController.text = '0.45';
+    }
+
     final currentFare = double.tryParse(_fareController.text.replaceAll(',', '.')) ?? 0.0;
-    // Se já tiver valor da viagem calculado, não voltar a calcular por cima
-    if (rate > 0 && total > 0 && currentFare <= 0) {
+    // Se a tarifa estiver vazia ou for zero, calcula automaticamente pela taxa
+    if (currentFare <= 0.0 && total > 0.0) {
       _fareController.text = (total * rate).toStringAsFixed(2);
-    } else if (total > 0 && currentFare > 0) {
+    } else if (total > 0.0 && currentFare > 0.0) {
       _ratePerKmController.text = (currentFare / total).toStringAsFixed(2);
     }
     setState(() {});
@@ -194,7 +219,12 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
     final currentFare = double.tryParse(_fareController.text.replaceAll(',', '.')) ?? 0.0;
     final pickup = double.tryParse(_pickupDistController.text.replaceAll(',', '.')) ?? 0.0;
     final total = pickup + next;
-    if (total > 0 && currentFare > 0) {
+    var rate = double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0;
+    if (rate <= 0.0) rate = 0.45;
+
+    if (currentFare <= 0.0 && total > 0.0) {
+      _fareController.text = (total * rate).toStringAsFixed(2);
+    } else if (total > 0 && currentFare > 0) {
       _ratePerKmController.text = (currentFare / total).toStringAsFixed(2);
     }
     setState(() {});
@@ -205,9 +235,11 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
       case ProfitabilityVerdict.excelente:
         return AppTheme.accentGreen;
       case ProfitabilityVerdict.aceitavel:
-        return AppTheme.warningAmber;
-      case ProfitabilityVerdict.fraca:
-        return const Color(0xFFFF9100);
+        return const Color(0xFF69F0AE); // Verde menta
+      case ProfitabilityVerdict.minimo:
+        return AppTheme.warningAmber;   // Âmbar (0.45€)
+      case ProfitabilityVerdict.abaixoMinimo:
+        return const Color(0xFFFF5252); // Vermelho alerta (< 0.45€)
       case ProfitabilityVerdict.prejuizo:
         return AppTheme.dangerRed;
     }
@@ -219,7 +251,9 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
         return Icons.check_circle_rounded;
       case ProfitabilityVerdict.aceitavel:
         return Icons.thumb_up_rounded;
-      case ProfitabilityVerdict.fraca:
+      case ProfitabilityVerdict.minimo:
+        return Icons.check_circle_outline_rounded;
+      case ProfitabilityVerdict.abaixoMinimo:
         return Icons.warning_amber_rounded;
       case ProfitabilityVerdict.prejuizo:
         return Icons.cancel_rounded;
@@ -575,22 +609,30 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                           ),
                           const SizedBox(height: 10),
 
-                          // CHIPS RÁPIDOS DE TAXA POR KM
+                          // CHIPS RÁPIDOS DE TAXA POR KM (Mínimo TVDE 0.45€)
                           Wrap(
                             spacing: 6,
                             runSpacing: 6,
-                            children: [0.80, 1.00, 1.20, 1.50, 2.00].map((rate) {
+                            children: [0.45, 0.60, 0.80, 1.00, 1.20, 1.50].map((rate) {
                               final isSelected = (double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.0) == rate;
+                              final isMinimum = rate == 0.45;
                               return ActionChip(
-                                label: Text('${rate.toStringAsFixed(2)} €/km'),
+                                label: Text(
+                                  isMinimum ? '0.45 €/km (Mínimo TVDE)' : '${rate.toStringAsFixed(2)} €/km',
+                                ),
                                 labelStyle: TextStyle(
-                                  color: isSelected ? Colors.black : Colors.white,
+                                  color: isSelected ? Colors.black : (isMinimum ? AppTheme.accentGreen : Colors.white),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
                                 ),
-                                backgroundColor: isSelected ? AppTheme.primaryElectric : AppTheme.darkSurface,
+                                backgroundColor: isSelected
+                                    ? (isMinimum ? AppTheme.accentGreen : AppTheme.primaryElectric)
+                                    : AppTheme.darkSurface,
                                 side: BorderSide(
-                                  color: isSelected ? AppTheme.primaryElectric : AppTheme.darkBorder,
+                                  color: isSelected
+                                      ? (isMinimum ? AppTheme.accentGreen : AppTheme.primaryElectric)
+                                      : (isMinimum ? AppTheme.accentGreen.withOpacity(0.6) : AppTheme.darkBorder),
+                                  width: isMinimum ? 1.5 : 1.0,
                                 ),
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 onPressed: () => _applyRatePerKm(rate),
@@ -611,7 +653,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                                   decoration: InputDecoration(
                                     labelText: 'Taxa / km (€)',
-                                    hintText: 'Ex: 0.85',
+                                    hintText: 'Mín: 0.45',
                                     labelStyle: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
                                     prefixIcon: const Icon(Icons.speed, size: 16, color: AppTheme.primaryElectric),
                                     filled: true,
@@ -637,7 +679,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                                     children: [
                                       const Text('Cálculo Direto:', style: TextStyle(color: AppTheme.textMuted, fontSize: 10)),
                                       Text(
-                                        '${calc.totalDistanceKm.toStringAsFixed(1)} km × ${_ratePerKmController.text} €/km',
+                                        '${calc.totalDistanceKm.toStringAsFixed(1)} km × ${_ratePerKmController.text.isNotEmpty ? _ratePerKmController.text : "0.45"} €/km',
                                         style: const TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 12),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -647,6 +689,32 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                               ),
                             ],
                           ),
+
+                          // AVISO VISUAL SE A TARIFA ESTIVER ABAIXO DO MÍNIMO DE 0.45€/KM
+                          if ((double.tryParse(_ratePerKmController.text.replaceAll(',', '.')) ?? 0.45) < 0.45 &&
+                              _ratePerKmController.text.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.dangerRed.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.dangerRed),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRed, size: 16),
+                                  SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Atenção: Tarifa abaixo do mínimo de 0.45 €/km!',
+                                      style: TextStyle(color: AppTheme.dangerRed, fontSize: 11, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

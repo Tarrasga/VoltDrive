@@ -66,67 +66,36 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
     }
   }
 
-  Future<void> _triggerSos() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: AppTheme.dangerRed, width: 2),
-        ),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRed, size: 28),
-            SizedBox(width: 8),
-            Text('Disparar Alerta SOS?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Text(
-          'Isto vai enviar um alerta urgente com as tuas coordenadas GPS para todos os colegas da equipa "${BuddySafetyService.teamCode}".\n\n${BuddySafetyService.isDiscreetMode ? "🤫 Modo Discreto ativado: o teu telemóvel não fará barulho." : ""}',
-          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar', style: TextStyle(color: AppTheme.textMuted)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerRed),
-            child: const Text('SIM, ENVIAR SOS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
+  Future<void> _triggerSos({bool sendToWhatsApp = true}) async {
+    setState(() => _isLoadingLoc = true);
+    var loc = _myLocation;
+    loc ??= await AssistantService.getCurrentLocation();
+    loc ??= LocationResult(latitude: 38.65, longitude: -9.15, accuracy: 50, speed: 0);
+    _myLocation = loc;
+    _isLoadingLoc = false;
 
-    if (confirmed == true) {
-      var loc = _myLocation;
-      loc ??= await AssistantService.getCurrentLocation();
-      loc ??= LocationResult(latitude: 38.65, longitude: -9.15, accuracy: 50, speed: 0);
+    final url = loc.googleMapsUrl;
+    final text = '🚨 ALERTA SOS TVDE: Preciso de apoio urgente no Renault Zoe!\n'
+        '📍 Coordenadas: ${loc.latitude.toStringAsFixed(5)}, ${loc.longitude.toStringAsFixed(5)} (Precisão: ±${loc.accuracy.toStringAsFixed(0)}m)\n'
+        '🗺️ Ver localização em direto: $url';
 
-      final ok = await BuddySafetyService.sendSosAlert(loc);
+    // 1. Abrir WhatsApp diretamente com mensagem pré-preenchida (para Grupo TVDE ou Contacto)
+    if (sendToWhatsApp) {
+      await AssistantService.shareWhatsApp(phone: BuddySafetyService.emergencyPhone, message: text);
+    }
 
-      if (mounted) {
-        if (ok) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('🚨 Alerta SOS enviado com sucesso para a equipa "${BuddySafetyService.teamCode}"!'),
-              backgroundColor: AppTheme.dangerRed,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Não foi possível ligar à rede. A abrir WhatsApp/SMS de emergência...'),
-              backgroundColor: AppTheme.warningAmber,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-          _shareViaWhatsAppOrSms();
-        }
-      }
+    // 2. Disparar também na rede da app como contingência
+    BuddySafetyService.sendSosAlert(loc, customMessage: '🚨 SOS TVDE disparado via WhatsApp');
+
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🚨 Alerta SOS com localização GPS aberto no WhatsApp! Seleciona o teu Grupo TVDE para enviar.'),
+          backgroundColor: Color(0xFF25D366),
+          duration: Duration(seconds: 4),
+        ),
+      );
     }
   }
 
@@ -424,9 +393,15 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
                   controller: _emergencyPhoneController,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
-                    labelText: 'Contacto de Emergência (Colega)',
+                    labelText: 'Contacto WhatsApp Direto (Opcional)',
+                    hintText: 'Deixa vazio para escolher o Grupo no WhatsApp',
                     prefixIcon: Icon(Icons.phone_outlined, color: AppTheme.primaryElectric),
                   ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '💡 Se deixares vazio, ao disparar o SOS abre diretamente o WhatsApp para escolheres o teu Grupo TVDE.',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
                 ),
                 const SizedBox(height: 14),
                 SwitchListTile(
@@ -690,19 +665,23 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
               style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 16),
+            // BOTÃO PRINCIPAL: DISPARAR SOS DIRETO PARA GRUPO WHATSAPP
             SizedBox(
               width: double.infinity,
-              height: 54,
+              height: 56,
               child: ElevatedButton.icon(
-                onPressed: _triggerSos,
-                icon: const Icon(Icons.emergency_share, color: Colors.white, size: 24),
+                onPressed: () => _triggerSos(sendToWhatsApp: true),
+                icon: const Icon(Icons.chat_bubble, color: Colors.white, size: 24),
                 label: const Text(
-                  'DISPARAR ALERTA SOS',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5),
+                  'DISPARAR SOS PARA GRUPO WHATSAPP',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.dangerRed,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  backgroundColor: const Color(0xFF25D366), // Verde oficial WhatsApp
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: const BorderSide(color: AppTheme.dangerRed, width: 2),
+                  ),
                   elevation: 6,
                 ),
               ),
@@ -712,12 +691,26 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
+                    onPressed: () => _triggerSos(sendToWhatsApp: false),
+                    icon: const Icon(Icons.warning_amber_rounded, size: 18, color: AppTheme.dangerRed),
+                    label: const Text('Alerta de Rede (App)', style: TextStyle(fontSize: 12, color: AppTheme.dangerRed, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AppTheme.dangerRed.withOpacity(0.5)),
+                      backgroundColor: AppTheme.darkSurface,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
                     onPressed: _shareViaWhatsAppOrSms,
-                    icon: const Icon(Icons.share, size: 16, color: AppTheme.primaryElectric),
-                    label: const Text('Partilhar por SMS / WhatsApp', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                    icon: const Icon(Icons.sms_outlined, size: 18, color: AppTheme.primaryElectric),
+                    label: const Text('SMS / Contactos', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppTheme.darkBorder),
                       backgroundColor: AppTheme.darkSurface,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
                     ),
                   ),
                 ),

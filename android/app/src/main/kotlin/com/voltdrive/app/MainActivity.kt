@@ -302,15 +302,67 @@ class MainActivity: FlutterFragmentActivity() {
                         } else {
                             cleanDigits
                         }
-                        val url = if (finalPhone.isNotEmpty()) {
-                            "https://api.whatsapp.com/send?phone=$finalPhone&text=$encoded"
-                        } else {
-                            "https://api.whatsapp.com/send?text=$encoded"
+
+                        var started = false
+
+                        // Se for para um número específico (conversa direta)
+                        if (finalPhone.isNotEmpty()) {
+                            val url = "https://api.whatsapp.com/send?phone=$finalPhone&text=$encoded"
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    setPackage("com.whatsapp")
+                                }
+                                startActivity(intent)
+                                started = true
+                            } catch (e: Exception) {
+                                try {
+                                    val bIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        setPackage("com.whatsapp.w4b")
+                                    }
+                                    startActivity(bIntent)
+                                    started = true
+                                } catch (e2: Exception) {}
+                            }
                         }
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+                        // Se for para Grupo ou escolha de conversa no WhatsApp (ACTION_SEND direto)
+                        if (!started) {
+                            try {
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, message)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    setPackage("com.whatsapp")
+                                }
+                                startActivity(sendIntent)
+                                started = true
+                            } catch (e: Exception) {
+                                try {
+                                    val bSendIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, message)
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        setPackage("com.whatsapp.w4b")
+                                    }
+                                    startActivity(bSendIntent)
+                                    started = true
+                                } catch (e2: Exception) {
+                                    val url = if (finalPhone.isNotEmpty()) {
+                                        "https://api.whatsapp.com/send?phone=$finalPhone&text=$encoded"
+                                    } else {
+                                        "https://api.whatsapp.com/send?text=$encoded"
+                                    }
+                                    val fallback = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    startActivity(fallback)
+                                    started = true
+                                }
+                            }
                         }
-                        startActivity(intent)
+
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("WHATSAPP_FAILED", e.message, null)

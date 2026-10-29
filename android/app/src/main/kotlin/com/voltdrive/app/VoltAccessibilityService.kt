@@ -284,8 +284,8 @@ class VoltAccessibilityService : AccessibilityService() {
 
         val (verdictText, verdictColor) = when {
             netPerKm >= 0.70 -> Pair("EXCELENTE", Color.parseColor("#00E676")) // Neon Green
-            netPerKm >= 0.50 -> Pair("ACEITÁVEL", Color.parseColor("#FFB020"))  // Bright Amber
-            else -> Pair("RECUSAR", Color.parseColor("#FF5252"))                // Alert Red
+            netPerKm >= 0.45 -> Pair("MÍNIMO", Color.parseColor("#FFB020"))     // Amber (>= 0.45 mínimo TVDE)
+            else -> Pair("ABAIXO MÍNIMO", Color.parseColor("#FF5252"))         // Alert Red (< 0.45)
         }
 
         android.util.Log.i(

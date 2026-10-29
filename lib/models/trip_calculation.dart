@@ -1,8 +1,9 @@
 enum ProfitabilityVerdict {
-  excelente, // Muito rentável (> 0.85 €/km líquido)
-  aceitavel, // Rentabilidade normal (0.55 - 0.85 €/km líquido)
-  fraca,     // Margem baixa / Alerta (< 0.55 €/km líquido)
-  prejuizo,  // Custo supera ou iguala o ganho líquido
+  excelente,     // Muito rentável (> 0.85 €/km líquido)
+  aceitavel,     // Rentabilidade boa (0.60 - 0.85 €/km líquido)
+  minimo,        // Mínimo legal TVDE (0.45 - 0.60 €/km líquido)
+  abaixoMinimo,  // Abaixo do mínimo legal (< 0.45 €/km)
+  prejuizo,      // Custo supera ou iguala o ganho líquido
 }
 
 class TripCalculation {
@@ -52,12 +53,13 @@ class TripCalculation {
   // Lucro líquido extrapolado por hora (€/h)
   double get netProfitPerHour => durationMinutes > 0 ? (netProfit / (durationMinutes / 60.0)) : 0.0;
 
-  // Veredito sobre aceitar ou rejeitar a viagem
+  // Veredito sobre aceitar ou rejeitar a viagem (com base no mínimo de 0.45€/km)
   ProfitabilityVerdict get verdict {
     if (netProfit <= 0) return ProfitabilityVerdict.prejuizo;
     if (netProfitPerKm >= 0.85) return ProfitabilityVerdict.excelente;
-    if (netProfitPerKm >= 0.55) return ProfitabilityVerdict.aceitavel;
-    return ProfitabilityVerdict.fraca;
+    if (netProfitPerKm >= 0.60) return ProfitabilityVerdict.aceitavel;
+    if (netProfitPerKm >= 0.45) return ProfitabilityVerdict.minimo;
+    return ProfitabilityVerdict.abaixoMinimo;
   }
 
   String get verdictText {
@@ -66,8 +68,10 @@ class TripCalculation {
         return 'Excelente Viagem!';
       case ProfitabilityVerdict.aceitavel:
         return 'Viagem Rentável';
-      case ProfitabilityVerdict.fraca:
-        return 'Margem Baixa (Atenção)';
+      case ProfitabilityVerdict.minimo:
+        return 'Mínimo TVDE (0.45€/km)';
+      case ProfitabilityVerdict.abaixoMinimo:
+        return 'Abaixo do Mínimo (0.45€/km)';
       case ProfitabilityVerdict.prejuizo:
         return 'Não Compensa (Prejuízo)';
     }
