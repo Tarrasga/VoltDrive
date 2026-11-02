@@ -23,6 +23,8 @@ class BuddySafetyService {
   static String emergencyPhone = '';
   static bool isDiscreetMode = true;
   static bool isSharingActive = true;
+  static String myDeviceId = '';
+  static int _pingCounter = 0;
 
   // Canal seguro derivado com nome e palavra-passe
   static String get effectiveChannelTopic {
@@ -54,6 +56,12 @@ class BuddySafetyService {
     emergencyPhone = prefs.getString(_keyEmergencyPhone) ?? '';
     isDiscreetMode = prefs.getBool(_keyDiscreetMode) ?? true;
     isSharingActive = prefs.getBool(_keySharingActive) ?? true;
+
+    myDeviceId = prefs.getString('voltdrive_device_id') ?? '';
+    if (myDeviceId.isEmpty) {
+      myDeviceId = 'dev-${DateTime.now().millisecondsSinceEpoch}-${(driverName.hashCode.abs() % 10000)}';
+      await prefs.setString('voltdrive_device_id', myDeviceId);
+    }
 
     // Carregar contactos de emergência
     emergencyContacts.clear();
@@ -141,10 +149,33 @@ class BuddySafetyService {
 
   static void startPolling() {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      pollTeamUpdates();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      await pollTeamUpdates();
+
+      // Transmite a nossa localização automaticamente a cada 30 segundos
+      _pingCounter++;
+      if (_pingCounter % 2 == 0 && isSharingActive) {
+        try {
+          final loc = await AssistantService.getCurrentLocation();
+          if (loc != null) {
+            await broadcastMyLocation(loc);
+          }
+        } catch (_) {}
+      }
     });
     pollTeamUpdates();
+  }
+
+  static Future<void> forceSync() async {
+    if (isSharingActive) {
+      try {
+        final loc = await AssistantService.getCurrentLocation();
+        if (loc != null) {
+          await broadcastMyLocation(loc);
+        }
+      } catch (_) {}
+    }
+    await pollTeamUpdates();
   }
 
   static Future<void> broadcastMyLocation(LocationResult loc, {int battery = 80, String status = 'A Rodar'}) async {
@@ -163,7 +194,8 @@ class BuddySafetyService {
         'title': 'Ping: $driverName',
         'message': jsonEncode({
           'type': 'ping',
-          'id': 'driver-${driverName.hashCode}',
+          'id': myDeviceId,
+          'device_id': myDeviceId,
           'name': driverName,
           'has_pass': teamPassword.isNotEmpty,
           'lat': loc.latitude,
@@ -174,7 +206,7 @@ class BuddySafetyService {
           'time': DateTime.now().toIso8601String(),
         }),
         'priority': 1,
-        'tags': ['voltdrive_ping', 'car'],
+        'tags': ['voltdrive_ping', 'car', 'dev-$myDeviceId'],
       });
 
       request.write(payload);
@@ -202,7 +234,7 @@ class BuddySafetyService {
         'title': '🚨 SOS TVDE: $driverName precisa de apoio!',
         'message': '$message\n📍 Coordenadas: ${loc.latitude.toStringAsFixed(5)}, ${loc.longitude.toStringAsFixed(5)}\n🗺️ Ver no Mapa: $mapsUrl',
         'priority': 5,
-        'tags': ['warning', 'rotating_light', 'sos'],
+        'tags': ['warning', 'rotating_light', 'sos', 'dev-$myDeviceId'],
         'click': mapsUrl,
         'actions': [
           {
@@ -288,6 +320,8 @@ class BuddySafetyService {
 
           // 2. Alerta de SOS recebido de colega
           if (tags.contains('sos') || priority >= 5 || title.contains('SOS')) {
+            if (tags.contains('dev-$myDeviceId') && myDeviceId.isNotEmpty) continue; // Ignorar próprio alerta
+
             String sender = 'Colega TVDE';
             if (title.contains(':')) {
               final parts = title.split(':');
@@ -296,7 +330,7 @@ class BuddySafetyService {
               }
             }
 
-            if (sender == driverName) continue; // Ignorar próprio alerta
+            if (sender == driverName && tags.contains('dev-$myDeviceId')) continue;
 
             double lat = 38.6500;
             double lng = -9.1500;
@@ -338,21 +372,41 @@ class BuddySafetyService {
           if (tags.contains('voltdrive_ping') || msgText.contains('"type":"ping"')) {
             try {
               final pingData = jsonDecode(msgText);
-              final sender = pingData['name'] as String? ?? '';
-              if (sender.isNotEmpty && sender != driverName) {
-                final idx = colleagues.indexWhere((c) => c.name == sender);
-                final updated = BuddyMember.fromJson(pingData);
-                if (idx >= 0) {
-                  colleagues[idx] = updated;
-                } else {
-                  colleagues.add(updated);
-                }
-                updatesNotifier.value++;
+              final pingId = pingData['device_id'] as String? ?? pingData['id'] as String? ?? '';
+              var sender = pingData['name'] as String? ?? 'Colega TVDE';
+
+              // Ignorar se o ping veio deste próprio telemóvel
+              if (pingId == myDeviceId || (tags.contains('dev-$myDeviceId') && myDeviceId.isNotEmpty)) {
+                continue;
               }
+
+              // Se o colega tiver o mesmo nome que nós (ex: ambos "Condutor Zoe"), diferencia visualmente
+              if (sender == driverName) {
+                final shortId = pingId.length >= 4 ? pingId.substring(pingId.length - 4) : 'Colega';
+                sender = '$sender (#$shortId)';
+              }
+
+              final idx = colleagues.indexWhere((c) => c.id == pingId || (c.name == sender && pingId.isEmpty));
+              final updated = BuddyMember.fromJson({
+                ...pingData,
+                'id': pingId.isNotEmpty ? pingId : 'buddy-${sender.hashCode}',
+                'name': sender,
+              });
+              if (idx >= 0) {
+                colleagues[idx] = updated;
+              } else {
+                colleagues.add(updated);
+              }
+              updatesNotifier.value++;
             } catch (_) {}
           }
         } catch (_) {}
       }
+
+      // Limpar colegas cujo último sinal de presença foi há mais de 15 minutos
+      final now = DateTime.now();
+      colleagues.removeWhere((c) => now.difference(c.updatedAt).inMinutes > 15);
+      updatesNotifier.value++;
     } catch (_) {}
   }
 

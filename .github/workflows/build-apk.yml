@@ -102,7 +102,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Notificação do Sistema, Linha Vermelha no Ecrã & Pop-up SOS)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Transmissão Contínua de GPS no Radar & Identificação Única de Membros)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
@@ -110,15 +110,13 @@ jobs:
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
             ### 🚀 Novidades e Correções:
-            1. **🚨 Notificação Nativa do Sistema Android**:
-               - O alerta de SOS dispara agora uma Notificação de Sistema no Android com Prioridade Máxima (Heads-up / Pop-up de topo).
-               - Inclui som de alarme, vibração forte e botões diretos de 1 toque: **"🧭 NAVEGAR (GPS)"** e **"💬 WHATSAPP"**.
-               - Funciona mesmo que a permissão de sobreposição ainda não tenha sido concedida!
-            2. **🔴 Linha Vermelha Pulsante à Volta do Ecrã (Edge Lighting de Emergência)**:
-               - Desenha uma borda vermelha brilhante contínua a pulsar nos 4 cantos do telemóvel enquanto o alerta estiver ativo.
-               - Totalmente transparente aos toques do motorista (podes continuar a mexer no GPS/Uber/Bolt sem interferência).
-               - Desliga-se automaticamente assim que visualizas, dispensas ou abres a notificação.
-            3. **⚙️ Assistente Rápido de Permissões**:
-               - Botão direto no ecrã de Segurança que abre as definições do Android para ativar "Aparecer sobre outras apps" sem teres de procurar nos menus.
+            1. **📡 Radar de Colegas com Transmissão Contínua**:
+               - A app agora transmite automaticamente o sinal de presença/GPS a cada 30 segundos enquanto estiver ativa.
+               - Botão **"Procurar Colegas & Enviar Meu Sinal"** adicionado ao cartão do Radar para forçar atualização e transmissão imediata.
+            2. **🆔 Identificação Única por Dispositivo (`deviceId`)**:
+               - Resolve a colisão em que condutores com nomes predefinidos iguais ("Condutor Zoe") se ignoravam mutuamente pensando que era o próprio telemóvel.
+               - Limpeza automática de colegas inativos há mais de 15 minutos.
+            3. **🚨 Alertas SOS com Notificação, Linha Vermelha e Pop-up**:
+               - Sistema completo de alerta de emergência com contorno pulsante vermelho no ecrã e notificação prioritária no topo do Android.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

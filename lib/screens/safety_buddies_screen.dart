@@ -983,18 +983,44 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
           const SizedBox(height: 12),
           if (list.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
+              padding: const EdgeInsets.symmetric(vertical: 20),
               child: Center(
                 child: Column(
                   children: [
                     const Icon(Icons.people_outline, color: AppTheme.textMuted, size: 36),
                     const SizedBox(height: 8),
-                    const Text('Nenhum colega ligado neste canal.', style: TextStyle(color: AppTheme.textMuted, fontSize: 13, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Partilha o código "${BuddySafetyService.teamCode}" com outros motoristas para se verem aqui no radar!',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                    const Text('Nenhum colega ativo no radar neste momento.', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'O radar mostra apenas colegas com o VoltDrive aberto a emitir sinal nos últimos 15 min.\n\nPara te verem, os teus colegas têm de ter o mesmo código "${BuddySafetyService.teamCode}"${BuddySafetyService.teamPassword.isNotEmpty ? ' e a mesma palavra-passe' : ''}.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppTheme.textMuted, fontSize: 11, height: 1.4),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        setState(() => _isLoadingLoc = true);
+                        await BuddySafetyService.forceSync();
+                        setState(() => _isLoadingLoc = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('📡 Sinal GPS emitido e radar atualizado!'),
+                              backgroundColor: AppTheme.accentGreen,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.sync, size: 16, color: AppTheme.accentGreen),
+                      label: const Text('Procurar Colegas & Enviar Meu Sinal', style: TextStyle(color: AppTheme.accentGreen, fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.accentGreen),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      ),
                     ),
                   ],
                 ),
