@@ -66,33 +66,62 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
         children: [
           // BANNER DE ALERTA DE SOS DE COLEGA (SE ATIVO)
           if (incomingSos != null)
-            GestureDetector(
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const SafetyBuddiesScreen()));
-              },
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + 6,
-                  bottom: 8,
-                  left: 16,
-                  right: 16,
-                ),
-                color: AppTheme.dangerRed,
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 22),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '🚨 SOS DE COLEGA: ${incomingSos.name} precisa de apoio!',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                        overflow: TextOverflow.ellipsis,
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 6,
+                bottom: 8,
+                left: 14,
+                right: 8,
+              ),
+              color: AppTheme.dangerRed,
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const SafetyBuddiesScreen()));
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '🚨 SOS: ${incomingSos.name} precisa de apoio!',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const Text(
+                            'Toca para ver detalhes, WhatsApp e histórico',
+                            style: TextStyle(color: Colors.white70, fontSize: 10),
+                          ),
+                        ],
                       ),
                     ),
-                    const Text('VER ➔', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ],
-                ),
+                  ),
+                  // Botão rápido para GPS
+                  ElevatedButton(
+                    onPressed: () => AssistantService.openUrl(incomingSos.googleMapsUrl),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    child: const Text('🧭 GPS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                  ),
+                  const SizedBox(width: 4),
+                  // Botão para fechar o banner
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                    tooltip: 'Dispensar Alerta',
+                    onPressed: () {
+                      BuddySafetyService.clearActiveIncomingSos();
+                    },
+                  ),
+                ],
               ),
             ),
 

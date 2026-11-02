@@ -40,6 +40,11 @@ class BuddySafetyService {
 
   static bool isMySosActive = false;
   static BuddyMember? activeIncomingSos;
+  // Conjuntos para guardar IDs de alertas que foram fechados pelo condutor
+  static final Set<String> dismissedOverlaySosIds = {};
+  static final Set<String> dismissedActiveSosIds = {};
+  // Histórico recente de alertas recebidos (para consulta mesmo após fechar)
+  static final List<BuddyMember> sosAlertsHistory = [];
   // Colegas reais da equipa (SEM BOTS)
   static final List<BuddyMember> colleagues = [];
   // Lista de contactos rápidos de emergência
@@ -48,7 +53,15 @@ class BuddySafetyService {
   static final ValueNotifier<int> updatesNotifier = ValueNotifier<int>(0);
   static Timer? _pollingTimer;
 
+  static void onNativeOverlayDismissed(String sosId) {
+    if (sosId.isNotEmpty) {
+      dismissedOverlaySosIds.add(sosId);
+    }
+    updatesNotifier.value++;
+  }
+
   static Future<void> loadConfig() async {
+    AssistantService.onOverlayDismissedCallback = onNativeOverlayDismissed;
     final prefs = await SharedPreferences.getInstance();
     teamCode = prefs.getString(_keyTeamCode) ?? 'ZOE-PORTUGAL';
     teamPassword = prefs.getString(_keyTeamPassword) ?? '';
@@ -343,8 +356,11 @@ class BuddySafetyService {
               }
             }
 
-            activeIncomingSos = BuddyMember(
-              id: event['id'] as String? ?? 'sos-${DateTime.now().millisecondsSinceEpoch}',
+            final rawId = event['id'] as String? ?? '';
+            final sosId = rawId.isNotEmpty ? rawId : 'sos_${sender}_${lat.toStringAsFixed(4)}_${lng.toStringAsFixed(4)}';
+
+            final member = BuddyMember(
+              id: sosId,
               name: sender,
               vehicle: 'Renault Zoe TVDE',
               latitude: lat,
@@ -356,15 +372,36 @@ class BuddySafetyService {
               sosMessage: msgText,
               updatedAt: DateTime.now(),
             );
+
+            // Adicionar ao histórico de alertas recebidos (deduped)
+            final histIdx = sosAlertsHistory.indexWhere((h) => h.id == sosId);
+            if (histIdx >= 0) {
+              sosAlertsHistory[histIdx] = member;
+            } else {
+              sosAlertsHistory.insert(0, member);
+              if (sosAlertsHistory.length > 20) {
+                sosAlertsHistory.removeLast();
+              }
+            }
+
+            // Se o utilizador já descartou este alerta totalmente na app, não reativa
+            if (dismissedActiveSosIds.contains(sosId)) {
+              continue;
+            }
+
+            activeIncomingSos = member;
             updatesNotifier.value++;
 
-            // Disparar Pop-up de Emergência flutuante (por cima da Uber/Bolt/Waze)
-            AssistantService.showSosOverlay(
-              name: sender,
-              message: msgText,
-              latitude: lat,
-              longitude: lng,
-            );
+            // Disparar Pop-up de Emergência flutuante APENAS se o condutor ainda NÃO o fechou
+            if (!dismissedOverlaySosIds.contains(sosId)) {
+              AssistantService.showSosOverlay(
+                name: sender,
+                message: msgText,
+                latitude: lat,
+                longitude: lng,
+                sosId: sosId,
+              );
+            }
             continue;
           }
 
@@ -410,9 +447,57 @@ class BuddySafetyService {
     } catch (_) {}
   }
 
-  static void dismissIncomingSos() {
+  /// O condutor fecha apenas o pop-up / sobreposição do ecrã, mas mantém o alerta visível na app
+  static Future<void> dismissActiveSosOverlay() async {
+    final sos = activeIncomingSos;
+    if (sos != null) {
+      dismissedOverlaySosIds.add(sos.id);
+      await AssistantService.dismissSosOverlay(sos.id);
+    } else {
+      await AssistantService.hideOverlay();
+    }
+    updatesNotifier.value++;
+  }
+
+  /// O condutor volta a colocar o pop-up flutuante e a linha vermelha no ecrã a partir da app
+  static Future<void> reopenActiveSosOverlay() async {
+    final sos = activeIncomingSos;
+    if (sos == null) return;
+    dismissedOverlaySosIds.remove(sos.id);
+    await AssistantService.clearDismissedSos(sos.id);
+    await AssistantService.showSosOverlay(
+      name: sos.name,
+      message: sos.sosMessage,
+      latitude: sos.latitude,
+      longitude: sos.longitude,
+      sosId: sos.id,
+      force: true,
+    );
+    updatesNotifier.value++;
+  }
+
+  /// O condutor conclui ou limpa completamente o alerta da app (fecha pop-up e retira da barra ativa)
+  static Future<void> clearActiveIncomingSos() async {
+    final sos = activeIncomingSos;
+    if (sos != null) {
+      dismissedOverlaySosIds.add(sos.id);
+      dismissedActiveSosIds.add(sos.id);
+      await AssistantService.dismissSosOverlay(sos.id);
+    } else {
+      await AssistantService.hideOverlay();
+    }
     activeIncomingSos = null;
     updatesNotifier.value++;
-    AssistantService.hideOverlay();
+  }
+
+  /// Compatibilidade com chamadas existentes
+  static void dismissIncomingSos() {
+    clearActiveIncomingSos();
+  }
+
+  /// Limpar histórico recente de alertas SOS
+  static void clearSosAlertsHistory() {
+    sosAlertsHistory.clear();
+    updatesNotifier.value++;
   }
 }

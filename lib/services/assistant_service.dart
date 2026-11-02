@@ -33,6 +33,21 @@ class TvdeAppsStatus {
 
 class AssistantService {
   static const MethodChannel _channel = MethodChannel('com.voltdrive.app/assistant');
+  static void Function(String sosId)? onOverlayDismissedCallback;
+
+  static void init() {
+    _channel.setMethodCallHandler(_handleNativeCall);
+  }
+
+  static Future<dynamic> _handleNativeCall(MethodCall call) async {
+    if (call.method == 'onOverlayDismissed') {
+      final sosId = call.arguments?['sosId'] as String? ?? '';
+      if (sosId.isNotEmpty) {
+        onOverlayDismissedCallback?.call(sosId);
+      }
+    }
+    return null;
+  }
 
   static Future<bool> isOverlayGranted() async {
     try {
@@ -236,7 +251,7 @@ class AssistantService {
         return res;
       }
     } catch (_) {}
-    return '1.0.44';
+    return '1.0.45';
   }
 
   static Future<void> hideOverlay() async {
@@ -245,11 +260,25 @@ class AssistantService {
     } catch (_) {}
   }
 
+  static Future<void> dismissSosOverlay(String sosId) async {
+    try {
+      await _channel.invokeMethod('dismissSosOverlay', {'sosId': sosId});
+    } catch (_) {}
+  }
+
+  static Future<void> clearDismissedSos(String sosId) async {
+    try {
+      await _channel.invokeMethod('clearDismissedSos', {'sosId': sosId});
+    } catch (_) {}
+  }
+
   static Future<bool> showSosOverlay({
     required String name,
     required String message,
     required double latitude,
     required double longitude,
+    String sosId = '',
+    bool force = false,
   }) async {
     try {
       final res = await _channel.invokeMethod<bool>('showSosOverlay', {
@@ -257,6 +286,8 @@ class AssistantService {
         'message': message,
         'latitude': latitude,
         'longitude': longitude,
+        'sosId': sosId,
+        'force': force,
       });
       return res ?? false;
     } catch (_) {

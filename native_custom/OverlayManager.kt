@@ -43,6 +43,25 @@ object OverlayManager {
     var lastDismissedDistanceKm: Double = 0.0
     var lastDismissedTimestamp: Long = 0L
 
+    var currentSosId: String = ""
+    var lastDismissedSosId: String = ""
+    var lastDismissedSosTime: Long = 0L
+    val dismissedSosIds: MutableSet<String> = mutableSetOf()
+
+    fun clearDismissedSos(sosId: String? = null) {
+        if (sosId.isNullOrEmpty()) {
+            dismissedSosIds.clear()
+            lastDismissedSosId = ""
+            lastDismissedSosTime = 0L
+        } else {
+            dismissedSosIds.remove(sosId)
+            if (lastDismissedSosId == sosId) {
+                lastDismissedSosId = ""
+                lastDismissedSosTime = 0L
+            }
+        }
+    }
+
     private fun dpToPx(context: Context, dp: Float): Int {
         return TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
@@ -571,9 +590,19 @@ object OverlayManager {
         senderName: String,
         message: String,
         latitude: Double,
-        longitude: Double
+        longitude: Double,
+        sosId: String = "",
+        force: Boolean = false
     ): Boolean {
         val appContext = context.applicationContext ?: context
+        val effectiveId = if (sosId.isNotEmpty()) sosId else "${senderName}_${latitude}_${longitude}"
+        currentSosId = effectiveId
+
+        // Se este alerta já foi fechado pelo condutor e não foi forçado a reabrir:
+        if (!force && dismissedSosIds.contains(effectiveId)) {
+            android.util.Log.d("VoltDrive", "SOS $effectiveId ja foi dispensado pelo utilizador. Ignorando overlay.")
+            return false
+        }
 
         // 1. DISPARAR SEMPRE NOTIFICAÇÃO NATIVA DO SISTEMA ANDROID COM ALTA PRIORIDADE E BOTÕES
         postSosNotification(appContext, senderName, message, latitude, longitude)
@@ -692,7 +721,13 @@ object OverlayManager {
                 layoutParams = LinearLayout.LayoutParams(dpToPx(appContext, 32f), dpToPx(appContext, 32f))
                 isClickable = true
                 isFocusable = false
-                setOnClickListener { hideOverlay(appContext) }
+                setOnClickListener {
+                    dismissedSosIds.add(effectiveId)
+                    lastDismissedSosId = effectiveId
+                    lastDismissedSosTime = System.currentTimeMillis()
+                    hideOverlay(appContext)
+                    MainActivity.notifyOverlayDismissed(effectiveId)
+                }
             }
 
             headerRow.addView(sosBadge)
@@ -743,6 +778,9 @@ object OverlayManager {
                 isClickable = true
                 isFocusable = false
                 setOnClickListener {
+                    dismissedSosIds.add(effectiveId)
+                    lastDismissedSosId = effectiveId
+                    lastDismissedSosTime = System.currentTimeMillis()
                     try {
                         val navUri = Uri.parse("google.navigation:q=$latitude,$longitude")
                         val navIntent = Intent(Intent.ACTION_VIEW, navUri).apply {
@@ -759,6 +797,7 @@ object OverlayManager {
                         } catch (_: Exception) {}
                     }
                     hideOverlay(appContext)
+                    MainActivity.notifyOverlayDismissed(effectiveId)
                 }
             }
 
@@ -780,6 +819,9 @@ object OverlayManager {
                 isClickable = true
                 isFocusable = false
                 setOnClickListener {
+                    dismissedSosIds.add(effectiveId)
+                    lastDismissedSosId = effectiveId
+                    lastDismissedSosTime = System.currentTimeMillis()
                     try {
                         val waIntent = appContext.packageManager.getLaunchIntentForPackage("com.whatsapp")
                         if (waIntent != null) {
@@ -788,6 +830,7 @@ object OverlayManager {
                         }
                     } catch (_: Exception) {}
                     hideOverlay(appContext)
+                    MainActivity.notifyOverlayDismissed(effectiveId)
                 }
             }
 
@@ -809,7 +852,13 @@ object OverlayManager {
             }
 
             // Auto-dismiss após 45 segundos
-            autoDismissRunnable = Runnable { hideOverlay(appContext) }
+            autoDismissRunnable = Runnable {
+                dismissedSosIds.add(effectiveId)
+                lastDismissedSosId = effectiveId
+                lastDismissedSosTime = System.currentTimeMillis()
+                hideOverlay(appContext)
+                MainActivity.notifyOverlayDismissed(effectiveId)
+            }
             handler.postDelayed(autoDismissRunnable!!, 45000L)
         }
         return true

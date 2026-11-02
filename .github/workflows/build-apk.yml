@@ -102,7 +102,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Transmissão Contínua de GPS no Radar & Identificação Única de Membros)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Fecho Definitivo do Pop-up SOS & Cartão Dedicado no Ecrã)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
@@ -110,13 +110,14 @@ jobs:
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
             ### 🚀 Novidades e Correções:
-            1. **📡 Radar de Colegas com Transmissão Contínua**:
-               - A app agora transmite automaticamente o sinal de presença/GPS a cada 30 segundos enquanto estiver ativa.
-               - Botão **"Procurar Colegas & Enviar Meu Sinal"** adicionado ao cartão do Radar para forçar atualização e transmissão imediata.
-            2. **🆔 Identificação Única por Dispositivo (`deviceId`)**:
-               - Resolve a colisão em que condutores com nomes predefinidos iguais ("Condutor Zoe") se ignoravam mutuamente pensando que era o próprio telemóvel.
-               - Limpeza automática de colegas inativos há mais de 15 minutos.
-            3. **🚨 Alertas SOS com Notificação, Linha Vermelha e Pop-up**:
-               - Sistema completo de alerta de emergência com contorno pulsante vermelho no ecrã e notificação prioritária no topo do Android.
+            1. **🛑 Fecho Definitivo do Pop-up SOS no Ecrã**:
+               - Ao carregar no botão `✕` para fechar o pop-up ou dispensar o alerta, a janela flutuante e a borda vermelha fecham imediatamente e **NÃO voltam a aparecer** a cada 15 segundos.
+               - O sistema memoriza o alerta dispensado tanto no Kotlin nativo como no Flutter para não perturbar a condução e as apps de navegação (Uber, Bolt, Waze).
+            2. **📋 Visualização Dedicada do Alerta na App ("Ver o Alerta Noutro Lado")**:
+               - Mesmo com o pop-up flutuante fechado, o alerta de emergência do colega permanece visível e acessível:
+                 - **Ecrã Principal / Início**: Barra de aviso no topo com botão direto para GPS (`🧭 GPS`) e opção de fechar.
+                 - **Ecrã de Segurança & Colegas**: Cartão de emergência destacado com distância calculada, navegação GPS, WhatsApp direto e botão **"👁️ Mostrar no Ecrã"** caso queiras voltar a abrir o pop-up flutuante.
+            3. **📜 Histórico Recente de Alertas SOS**:
+               - Secção de histórico no ecrã de Segurança para rever alertas passados e consultar coordenadas GPS a qualquer momento.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

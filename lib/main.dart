@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'screens/auth_lock_screen.dart';
 import 'screens/auth_register_screen.dart';
 import 'screens/home_navigation_screen.dart';
+import 'services/assistant_service.dart';
 import 'services/auth_service.dart';
 import 'services/cloud_sync_service.dart';
 import 'services/update_service.dart';
@@ -15,6 +16,7 @@ void main() async {
   // Inicializar versão real da app a partir do Android
   try {
     await UpdateService.init();
+    AssistantService.init();
   } catch (_) {}
 
   // Inicializar suporte de formatação e datas em português

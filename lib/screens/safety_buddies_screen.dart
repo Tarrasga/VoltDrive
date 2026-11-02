@@ -504,6 +504,12 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
 
             // RADAR DE COLEGAS
             _buildBuddiesRadarCard(),
+
+            // HISTÓRICO RECENTE DE ALERTAS SOS
+            if (BuddySafetyService.sosAlertsHistory.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSosHistoryCard(),
+            ],
           ],
         ),
       ),
@@ -511,18 +517,23 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
   }
 
   Widget _buildIncomingSosAlert(BuddyMember sos) {
+    final isOverlayDismissed = BuddySafetyService.dismissedOverlaySosIds.contains(sos.id);
     final dist = _myLocation != null
-        ? '${sos.distanceToKm(_myLocation!.latitude, _myLocation!.longitude).toStringAsFixed(1)} km'
-        : 'Perto de ti';
+        ? '${sos.distanceToKm(_myLocation!.latitude, _myLocation!.longitude).toStringAsFixed(1)} km de ti'
+        : 'Localização GPS recebida';
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.dangerRed.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(16),
+        color: AppTheme.dangerRed.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppTheme.dangerRed, width: 2),
         boxShadow: [
-          BoxShadow(color: AppTheme.dangerRed.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: AppTheme.dangerRed.withOpacity(0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -531,73 +542,257 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
+              const Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRed, size: 28),
-                  const SizedBox(width: 8),
+                  Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRed, size: 28),
+                  SizedBox(width: 8),
                   Text(
-                    '🚨 ALERTA SOS DO COLEGA!',
-                    style: const TextStyle(color: AppTheme.dangerRed, fontSize: 16, fontWeight: FontWeight.bold),
+                    '🚨 ALERTA SOS ATIVO (COLEGA)',
+                    style: TextStyle(color: AppTheme.dangerRed, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: AppTheme.textMuted, size: 20),
-                onPressed: () => setState(() => BuddySafetyService.dismissIncomingSos()),
+                icon: const Icon(Icons.close, color: Colors.white70, size: 22),
+                tooltip: 'Dispensar Alerta',
+                onPressed: () async {
+                  await BuddySafetyService.clearActiveIncomingSos();
+                  if (mounted) setState(() {});
+                },
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            '${sos.name} acionou o SOS no seu ${sos.vehicle}!',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            '${sos.name} precisa de apoio!',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
           ),
+          const SizedBox(height: 4),
           if (sos.sosMessage.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 '"${sos.sosMessage}"',
                 style: const TextStyle(color: AppTheme.warningAmber, fontSize: 13, fontStyle: FontStyle.italic),
               ),
             ),
-          const SizedBox(height: 10),
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
                 child: Row(
                   children: [
                     const Icon(Icons.near_me, color: AppTheme.primaryElectric, size: 14),
-                    const SizedBox(width: 4),
-                    Text('Distância: $dist', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 5),
+                    Text(dist, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
                 child: Row(
                   children: [
-                    const Icon(Icons.battery_charging_full, color: AppTheme.accentGreen, size: 14),
-                    const SizedBox(width: 4),
-                    Text('Zoe: ${sos.batteryPercent}%', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    const Icon(Icons.access_time, color: AppTheme.textMuted, size: 14),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Recebido às ${sos.updatedAt.hour.toString().padLeft(2, '0')}:${sos.updatedAt.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
+          // Botão 1: Navegar no GPS (Waze / Google Maps)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () => AssistantService.openUrl(sos.googleMapsUrl),
-              icon: const Icon(Icons.navigation_rounded, color: Colors.white),
-              label: const Text('Navegar até ao Colega (Google Maps / Waze)', style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerRed, padding: const EdgeInsets.symmetric(vertical: 12)),
+              icon: const Icon(Icons.navigation_rounded, color: Colors.black),
+              label: const Text(
+                '🧭 NAVEGAR NO GPS (Waze / Google Maps)',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00E676),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              // Botão 2: WhatsApp
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => AssistantService.shareWhatsApp(phone: '', message: 'Recebi o teu SOS, estou a caminho!'),
+                  icon: const Icon(Icons.chat, color: Colors.white, size: 18),
+                  label: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Botão 3: Reabrir ou Ocultar Pop-up Flutuante
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    if (isOverlayDismissed) {
+                      await BuddySafetyService.reopenActiveSosOverlay();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('🚨 Pop-up flutuante e borda vermelha recolocados no ecrã!'),
+                            backgroundColor: AppTheme.dangerRed,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } else {
+                      await BuddySafetyService.dismissActiveSosOverlay();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Pop-up fechado do ecrã. Podes ver o alerta sempre aqui nesta aba!'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    }
+                    if (mounted) setState(() {});
+                  },
+                  icon: Icon(
+                    isOverlayDismissed ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                  label: Text(
+                    isOverlayDismissed ? 'Mostrar no Ecrã' : 'Ocultar do Ecrã',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white38),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton.icon(
+              onPressed: () async {
+                await BuddySafetyService.clearActiveIncomingSos();
+                if (mounted) setState(() {});
+              },
+              icon: const Icon(Icons.check_circle_outline, color: AppTheme.accentGreen, size: 18),
+              label: const Text(
+                'Marcar como Concluído / Dispensar Alerta',
+                style: TextStyle(color: AppTheme.accentGreen, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSosHistoryCard() {
+    final history = BuddySafetyService.sosAlertsHistory;
+    if (history.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.darkCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.history_toggle_off, color: AppTheme.primaryElectric, size: 20),
+                  SizedBox(width: 8),
+                  Text('Histórico Recente de Alertas SOS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                ],
+              ),
+              TextButton(
+                onPressed: () {
+                  BuddySafetyService.clearSosAlertsHistory();
+                  setState(() {});
+                },
+                child: const Text('Limpar', style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Alertas recebidos durante a tua sessão (podes consultar e navegar a qualquer momento):',
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+          ),
+          const SizedBox(height: 10),
+          ...history.map((h) {
+            final timeStr = '${h.updatedAt.hour.toString().padLeft(2, '0')}:${h.updatedAt.minute.toString().padLeft(2, '0')}';
+            final distStr = _myLocation != null
+                ? '${h.distanceToKm(_myLocation!.latitude, _myLocation!.longitude).toStringAsFixed(1)} km'
+                : 'GPS';
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.darkSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.darkBorder.withOpacity(0.6)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: AppTheme.dangerRed, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(h.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                        Text('$timeStr • $distStr • ${h.vehicle}', style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+                        if (h.sosMessage.isNotEmpty)
+                          Text(
+                            h.sosMessage,
+                            style: const TextStyle(color: AppTheme.warningAmber, fontSize: 11, fontStyle: FontStyle.italic),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => AssistantService.openUrl(h.googleMapsUrl),
+                    icon: const Icon(Icons.navigation_outlined, size: 14, color: Colors.black),
+                    label: const Text('GPS', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryElectric,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );

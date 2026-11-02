@@ -32,6 +32,28 @@ class MainActivity: FlutterFragmentActivity() {
     private val CHANNEL = "com.voltdrive.app/assistant"
     private var pendingLocationResult: MethodChannel.Result? = null
 
+    companion object {
+        var flutterChannel: MethodChannel? = null
+
+        fun notifyOverlayDismissed(sosId: String) {
+            val ch = flutterChannel ?: return
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    ch.invokeMethod("onOverlayDismissed", mapOf("sosId" to sosId))
+                } catch (e: Exception) {
+                    android.util.Log.e("VoltDrive", "Failed to send onOverlayDismissed: ${e.message}")
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        if (flutterChannel != null) {
+            flutterChannel = null
+        }
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= 33) {
@@ -44,7 +66,9 @@ class MainActivity: FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        flutterChannel = channel
+        channel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "isOverlayGranted" -> {
                     result.success(OverlayManager.canDrawOverlays(applicationContext))
@@ -244,7 +268,9 @@ class MainActivity: FlutterFragmentActivity() {
                     val message = call.argument<String>("message") ?: ""
                     val lat = call.argument<Double>("latitude") ?: 38.7223
                     val lng = call.argument<Double>("longitude") ?: -9.1393
-                    val shown = OverlayManager.showSosAlert(applicationContext, name, message, lat, lng)
+                    val sosId = call.argument<String>("sosId") ?: ""
+                    val force = call.argument<Boolean>("force") ?: false
+                    val shown = OverlayManager.showSosAlert(applicationContext, name, message, lat, lng, sosId, force)
                     result.success(shown)
                 }
                 "showTestSosOverlay" -> {
@@ -253,9 +279,26 @@ class MainActivity: FlutterFragmentActivity() {
                         "Carlos TVDE (Zoe)",
                         "Preciso de apoio imediato!",
                         38.7223,
-                        -9.1393
+                        -9.1393,
+                        "test_sos_id",
+                        true
                     )
                     result.success(shown)
+                }
+                "dismissSosOverlay" -> {
+                    val sosId = call.argument<String>("sosId") ?: ""
+                    if (sosId.isNotEmpty()) {
+                        OverlayManager.dismissedSosIds.add(sosId)
+                        OverlayManager.lastDismissedSosId = sosId
+                        OverlayManager.lastDismissedSosTime = System.currentTimeMillis()
+                    }
+                    OverlayManager.hideOverlay(applicationContext)
+                    result.success(true)
+                }
+                "clearDismissedSos" -> {
+                    val sosId = call.argument<String>("sosId") ?: ""
+                    OverlayManager.clearDismissedSos(sosId)
+                    result.success(true)
                 }
                 "hideOverlay" -> {
                     OverlayManager.hideOverlay(applicationContext)
@@ -458,10 +501,10 @@ class MainActivity: FlutterFragmentActivity() {
                             @Suppress("DEPRECATION")
                             packageManager.getPackageInfo(packageName, 0)
                         }
-                        val vName = pInfo.versionName ?: "1.0.44"
+                        val vName = pInfo.versionName ?: "1.0.45"
                         result.success(vName)
                     } catch (e: Exception) {
-                        result.success("1.0.44")
+                        result.success("1.0.45")
                     }
                 }
                 else -> result.notImplemented()
