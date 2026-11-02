@@ -2,6 +2,7 @@ package com.voltdrive.app
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -391,5 +392,246 @@ object OverlayManager {
             verdictColor = Color.parseColor("#FFB020"),
             electricCost = 0.38
         )
+    }
+
+    fun showSosAlert(
+        context: Context,
+        senderName: String,
+        message: String,
+        latitude: Double,
+        longitude: Double
+    ): Boolean {
+        val appContext = context.applicationContext ?: context
+        if (!canDrawOverlays(appContext)) {
+            android.util.Log.w("VoltDrive", "Cannot draw overlays: permission not granted!")
+            return false
+        }
+
+        handler.post {
+            removeCurrentViewInternal()
+
+            val wm = appContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return@post
+            windowManager = wm
+
+            val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            }
+
+            val displayMetrics = appContext.resources.displayMetrics
+            val isLandscape = displayMetrics.widthPixels > displayMetrics.heightPixels
+            val overlayWidth = if (isLandscape) {
+                dpToPx(appContext, 460f).coerceAtMost(displayMetrics.widthPixels)
+            } else {
+                WindowManager.LayoutParams.MATCH_PARENT
+            }
+
+            val params = WindowManager.LayoutParams(
+                overlayWidth,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                layoutType,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                android.graphics.PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                y = dpToPx(appContext, 36f)
+            }
+
+            // Vibrate warning pattern for emergency
+            try {
+                val vibrator = appContext.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                if (vibrator != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 300, 150, 300), -1))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        vibrator.vibrate(600)
+                    }
+                }
+            } catch (_: Exception) {}
+
+            // Outer Container
+            val root = FrameLayout(appContext).apply {
+                setPadding(dpToPx(appContext, 14f), dpToPx(appContext, 8f), dpToPx(appContext, 14f), dpToPx(appContext, 8f))
+            }
+
+            // Card Container (Dark OLED styled card with bold red border)
+            val card = LinearLayout(appContext).apply {
+                orientation = LinearLayout.VERTICAL
+                val bg = GradientDrawable().apply {
+                    setColor(Color.parseColor("#1C0F13"))
+                    cornerRadius = dpToPx(appContext, 18f).toFloat()
+                    setStroke(dpToPx(appContext, 2.5f), Color.parseColor("#EF4444"))
+                }
+                background = bg
+                setPadding(dpToPx(appContext, 16f), dpToPx(appContext, 14f), dpToPx(appContext, 16f), dpToPx(appContext, 14f))
+            }
+
+            // Header Row: SOS Badge + Title + Close Button
+            val headerRow = LinearLayout(appContext).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            val sosBadge = TextView(appContext).apply {
+                text = " 🚨 SOS URGENTE "
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.WHITE)
+                val chipBg = GradientDrawable().apply {
+                    setColor(Color.parseColor("#DC2626"))
+                    cornerRadius = dpToPx(appContext, 6f).toFloat()
+                }
+                background = chipBg
+                setPadding(dpToPx(appContext, 8f), dpToPx(appContext, 3f), dpToPx(appContext, 8f), dpToPx(appContext, 3f))
+            }
+
+            val headerTitle = TextView(appContext).apply {
+                text = "  REDE TVDE"
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.parseColor("#FCA5A5"))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+            }
+
+            val closeBtn = TextView(appContext).apply {
+                text = "✕"
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.WHITE)
+                val btnBg = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.parseColor("#334155"))
+                }
+                background = btnBg
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(dpToPx(appContext, 32f), dpToPx(appContext, 32f))
+                isClickable = true
+                isFocusable = false
+                setOnClickListener { hideOverlay() }
+            }
+
+            headerRow.addView(sosBadge)
+            headerRow.addView(headerTitle)
+            headerRow.addView(closeBtn)
+            card.addView(headerRow)
+
+            // Colleague Name and Alert text
+            val nameText = TextView(appContext).apply {
+                text = "$senderName precisa de apoio!"
+                textSize = 17f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.WHITE)
+                setPadding(0, dpToPx(appContext, 10f), 0, dpToPx(appContext, 4f))
+            }
+            card.addView(nameText)
+
+            val detailText = TextView(appContext).apply {
+                text = if (message.isNotEmpty() && !message.contains("null")) message else "Alerta de emergência disparado via VoltDrive"
+                textSize = 13f
+                setTextColor(Color.parseColor("#CBD5E1"))
+                setPadding(0, 0, 0, dpToPx(appContext, 12f))
+            }
+            card.addView(detailText)
+
+            // Buttons row: [ 🧭 Navegar no GPS ] [ 💬 WhatsApp ]
+            val btnRow = LinearLayout(appContext).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            // Button 1: Navegar no GPS
+            val navBtn = TextView(appContext).apply {
+                text = "🧭 NAVEGAR (GPS)"
+                textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.BLACK)
+                gravity = Gravity.CENTER
+                val btnBg = GradientDrawable().apply {
+                    setColor(Color.parseColor("#00E676"))
+                    cornerRadius = dpToPx(appContext, 10f).toFloat()
+                }
+                background = btnBg
+                setPadding(dpToPx(appContext, 12f), dpToPx(appContext, 10f), dpToPx(appContext, 12f), dpToPx(appContext, 10f))
+                val p = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+                p.setMargins(0, 0, dpToPx(appContext, 8f), 0)
+                layoutParams = p
+                isClickable = true
+                isFocusable = false
+                setOnClickListener {
+                    try {
+                        val navUri = Uri.parse("google.navigation:q=$latitude,$longitude")
+                        val navIntent = Intent(Intent.ACTION_VIEW, navUri).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        appContext.startActivity(navIntent)
+                    } catch (e: Exception) {
+                        try {
+                            val mapUri = Uri.parse("https://maps.google.com/?q=$latitude,$longitude")
+                            val mapIntent = Intent(Intent.ACTION_VIEW, mapUri).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            appContext.startActivity(mapIntent)
+                        } catch (_: Exception) {}
+                    }
+                    hideOverlay()
+                }
+            }
+
+            // Button 2: WhatsApp
+            val waBtn = TextView(appContext).apply {
+                text = "💬 WHATSAPP"
+                textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                val btnBg = GradientDrawable().apply {
+                    setColor(Color.parseColor("#25D366"))
+                    cornerRadius = dpToPx(appContext, 10f).toFloat()
+                }
+                background = btnBg
+                setPadding(dpToPx(appContext, 12f), dpToPx(appContext, 10f), dpToPx(appContext, 12f), dpToPx(appContext, 10f))
+                val p = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+                layoutParams = p
+                isClickable = true
+                isFocusable = false
+                setOnClickListener {
+                    try {
+                        val waIntent = appContext.packageManager.getLaunchIntentForPackage("com.whatsapp")
+                        if (waIntent != null) {
+                            waIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            appContext.startActivity(waIntent)
+                        }
+                    } catch (_: Exception) {}
+                    hideOverlay()
+                }
+            }
+
+            btnRow.addView(navBtn)
+            btnRow.addView(waBtn)
+            card.addView(btnRow)
+
+            root.addView(card)
+            currentView = root
+
+            try {
+                wm.addView(root, params)
+                isOverlayVisible = true
+                android.util.Log.d("VoltDrive", "SOS Overlay view displayed successfully!")
+            } catch (e: Exception) {
+                android.util.Log.e("VoltDrive", "Error displaying SOS overlay: ${e.message}", e)
+                currentView = null
+                return@post
+            }
+
+            // Auto-dismiss após 45 segundos
+            autoDismissRunnable = Runnable { hideOverlay() }
+            handler.postDelayed(autoDismissRunnable!!, 45000L)
+        }
+        return true
     }
 }

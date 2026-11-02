@@ -236,13 +236,41 @@ class AssistantService {
         return res;
       }
     } catch (_) {}
-    return '1.0.41';
+    return '1.0.42';
   }
 
   static Future<void> hideOverlay() async {
     try {
       await _channel.invokeMethod('hideOverlay');
     } catch (_) {}
+  }
+
+  static Future<bool> showSosOverlay({
+    required String name,
+    required String message,
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('showSosOverlay', {
+        'name': name,
+        'message': message,
+        'latitude': latitude,
+        'longitude': longitude,
+      });
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> showTestSosOverlay() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('showTestSosOverlay');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<void> syncSettings(VehicleProfile profile, {int overlayTimeoutSeconds = 12}) async {

@@ -628,6 +628,7 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
               child: ElevatedButton.icon(
                 onPressed: () async {
                   await BuddySafetyService.cancelMySos();
+                  await AssistantService.hideOverlay();
                   setState(() {});
                 },
                 icon: const Icon(Icons.check_circle_outline, color: Colors.black),
@@ -715,6 +716,32 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () async {
+                  final shown = await AssistantService.showTestSosOverlay();
+                  if (!shown && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Ativa a permissão "Aparecer sobre outras apps" nas definições para ver o Pop-up!'),
+                        backgroundColor: AppTheme.warningAmber,
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.picture_in_picture_alt_rounded, size: 16, color: AppTheme.accentGreen),
+                label: const Text(
+                  '👁️ Testar Pop-up de Alerta SOS no Ecrã',
+                  style: TextStyle(color: AppTheme.accentGreen, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: AppTheme.darkSurface,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
             ),
           ],
         ],

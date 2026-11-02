@@ -239,6 +239,24 @@ class MainActivity: FlutterFragmentActivity() {
                     val shown = OverlayManager.showTestOffer(applicationContext)
                     result.success(shown)
                 }
+                "showSosOverlay" -> {
+                    val name = call.argument<String>("name") ?: "Colega TVDE"
+                    val message = call.argument<String>("message") ?: ""
+                    val lat = call.argument<Double>("latitude") ?: 38.7223
+                    val lng = call.argument<Double>("longitude") ?: -9.1393
+                    val shown = OverlayManager.showSosAlert(applicationContext, name, message, lat, lng)
+                    result.success(shown)
+                }
+                "showTestSosOverlay" -> {
+                    val shown = OverlayManager.showSosAlert(
+                        applicationContext,
+                        "Carlos TVDE (Zoe)",
+                        "Preciso de apoio imediato!",
+                        38.7223,
+                        -9.1393
+                    )
+                    result.success(shown)
+                }
                 "hideOverlay" -> {
                     OverlayManager.hideOverlay()
                     result.success(true)
@@ -440,10 +458,10 @@ class MainActivity: FlutterFragmentActivity() {
                             @Suppress("DEPRECATION")
                             packageManager.getPackageInfo(packageName, 0)
                         }
-                        val vName = pInfo.versionName ?: "1.0.41"
+                        val vName = pInfo.versionName ?: "1.0.42"
                         result.success(vName)
                     } catch (e: Exception) {
-                        result.success("1.0.41")
+                        result.success("1.0.42")
                     }
                 }
                 else -> result.notImplemented()

@@ -282,6 +282,7 @@ class BuddySafetyService {
           if (tags.contains('sos_cancel') || title.contains('SOS Resolvido')) {
             activeIncomingSos = null;
             updatesNotifier.value++;
+            AssistantService.hideOverlay();
             continue;
           }
 
@@ -322,6 +323,14 @@ class BuddySafetyService {
               updatedAt: DateTime.now(),
             );
             updatesNotifier.value++;
+
+            // Disparar Pop-up de Emergência flutuante (por cima da Uber/Bolt/Waze)
+            AssistantService.showSosOverlay(
+              name: sender,
+              message: msgText,
+              latitude: lat,
+              longitude: lng,
+            );
             continue;
           }
 
@@ -350,5 +359,6 @@ class BuddySafetyService {
   static void dismissIncomingSos() {
     activeIncomingSos = null;
     updatesNotifier.value++;
+    AssistantService.hideOverlay();
   }
 }

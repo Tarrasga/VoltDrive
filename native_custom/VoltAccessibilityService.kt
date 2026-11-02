@@ -25,7 +25,7 @@ class VoltAccessibilityService : AccessibilityService() {
         var lastBoltDetectedTime = 0L
     }
 
-    private val pricePattern = Pattern.compile("(?:(?:€|EUR)\\s*([0-9]+[.,][0-9]{2})|([0-9]+[.,][0-9]{2})\\s*(?:€|EUR))", Pattern.CASE_INSENSITIVE)
+    private val pricePattern = Pattern.compile("(?:(?:€|EUR)\\s*([0-9]+(?:[.,][0-9]{1,2})?)|([0-9]+(?:[.,][0-9]{1,2})?)\\s*(?:€|EUR))", Pattern.CASE_INSENSITIVE)
     private val distKmPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*km\\b", Pattern.CASE_INSENSITIVE)
     private val distMeterPattern = Pattern.compile("\\b([0-9]{2,4})\\s*m\\b", Pattern.CASE_INSENSITIVE)
 
@@ -56,15 +56,12 @@ class VoltAccessibilityService : AccessibilityService() {
         // 1. TERMOS ESTRITOS DE NAVEGAÇÃO GPS E VIAGEM EM CURSO (IGNORAR TOTALMENTE)
         // Quando a viagem já foi calculada/aceite e o GPS está ativo (ou waze/maps/rotas)
         val gpsNavigationKeywords = listOf(
-            "vire", "rotunda", "saída", "siga", "conduza", "em direção", "direções",
-            "metros", "m à", "km à", "em frente", "à direita", "à esquerda",
-            "waze", "google maps", "gps", "recalculando", "em rota",
-            "iniciar viagem", "terminar viagem", "concluir viagem", "concluir",
+            "vire à", "vire na", "rotunda", "em direção a", "em frente", "à direita", "à esquerda",
+            "waze", "google maps", "recalculando", "em rota",
+            "iniciar viagem", "terminar viagem", "concluir viagem",
             "deslize para iniciar", "deslize para concluir", "deslize para confirmar",
-            "chegou ao destino", "chegou à recolha", "chegou ao embarque", "a caminho",
-            "em viagem", "contactar passageiro", "ligar ao", "cancelar viagem",
-            "paragem", "largada", "destino final", "chegada prevista", "hora de chegada",
-            "restantes", "tempo restante", "previsão"
+            "chegou ao destino", "chegou à recolha", "chegou ao embarque",
+            "em viagem com", "contactar passageiro", "ligar ao passageiro"
         )
         val isGpsNavigation = gpsNavigationKeywords.any { kw -> fullText.contains(kw) }
         if (isGpsNavigation) {
@@ -80,10 +77,11 @@ class VoltAccessibilityService : AccessibilityService() {
         )
         val hasIdleKeyword = idleKeywords.any { kw -> fullText.contains(kw) }
 
-        // 3. Termos obrigatórios de uma oferta nova a tocar no ecrã para ser aceite
+        // 3. Termos de uma oferta nova a tocar no ecrã para ser aceite (inclui Uber Radar e Bolt)
         val explicitOfferKeywords = listOf(
             "aceitar", "accept", "novo pedido", "nova viagem", "nova corrida",
-            "tocar para aceitar", "deslize para aceitar", "tocar para", "pedido de viagem"
+            "tocar para aceitar", "deslize para aceitar", "tocar para", "pedido de viagem",
+            "corresponder", "match", "radar", "interessado", "ver detalhes", "solicitação", "pedido"
         )
         val hasOfferKeyword = explicitOfferKeywords.any { kw -> fullText.contains(kw) }
 
@@ -182,7 +180,7 @@ class VoltAccessibilityService : AccessibilityService() {
             val prevIsCurrency = i > 0 && (texts[i - 1].trim() == "€" || texts[i - 1].trim().equals("EUR", ignoreCase = true))
             val nextIsCurrency = i < texts.size - 1 && (texts[i + 1].trim() == "€" || texts[i + 1].trim().equals("EUR", ignoreCase = true))
             if (prevIsCurrency || nextIsCurrency) {
-                val numMatcher = Pattern.compile("([0-9]+[.,][0-9]{2})").matcher(text)
+                val numMatcher = Pattern.compile("([0-9]+(?:[.,][0-9]{1,2})?)").matcher(text)
                 while (numMatcher.find()) {
                     val rawVal = numMatcher.group(1)?.replace(',', '.') ?: continue
                     rawVal.toDoubleOrNull()?.let { p ->
@@ -248,10 +246,10 @@ class VoltAccessibilityService : AccessibilityService() {
             return
         }
 
-        // 2. Se o motorista acabou de fechar este cartão (✕) há menos de 30 segundos, NÃO reaparecer
+        // 2. Se o motorista acabou de fechar este cartão (✕) há menos de 5 segundos, NÃO reaparecer a mesma
         if (abs(grossFare - OverlayManager.lastDismissedGrossFare) < 0.05 &&
             abs(totalDistanceKm - OverlayManager.lastDismissedDistanceKm) < 0.2 &&
-            now - OverlayManager.lastDismissedTimestamp < 30000L
+            now - OverlayManager.lastDismissedTimestamp < 5000L
         ) {
             return
         }

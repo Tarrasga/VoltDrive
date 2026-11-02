@@ -102,7 +102,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Sincronização Dinâmica de Versão & SOS WhatsApp)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Pop-up de Alerta SOS & Otimização do Leitor)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
@@ -110,15 +110,16 @@ jobs:
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
             ### 🚀 Novidades e Correções:
-            1. **🔄 Correção do Instalador e Versão em Tempo Real**:
-               - A versão da app apresentada nos ecrãs e nas verificações de atualização passa a ser lida dinamicamente do sistema Android (`PackageManager`), garantindo que após atualizar a app nunca mais fica presa a indicar a versão antiga.
-               - Limpeza automática de pacotes temporários na pasta de cache antes do descarregamento.
-            2. **🚨 SOS Direto para Grupos de WhatsApp**:
-               - Botão de emergência de destaque que obtém a localização GPS em tempo real e abre o WhatsApp diretamente nos Grupos TVDE com mensagem de socorro pronta a enviar.
-            3. **💶 Calculadora de Viagens com Tarifa Mínima TVDE (0.45 €/km)**:
-               - Cálculo automático do valor total e lucro da corrida logo ao inserir os quilómetros.
-               - Alerta visual a vermelho caso a tarifa esteja abaixo do mínimo legal (0.45 €/km).
-            4. **📱 Orientação Livre e Contas TVDE**:
-               - Suporte livre a ecrã vertical e horizontal (tablier do carro) e modo limpo de contas sem dedução de consumo elétrico por defeito.
+            1. **🚨 Pop-up Flutuante de Emergência SOS no Ecrã**:
+               - Quando um colega da equipa TVDE dispara um SOS (ou ao testar o alerta), surge de imediato um Pop-up flutuante de emergência por cima de qualquer aplicação (Uber, Bolt, Waze, Google Maps).
+               - Alerta com vibração no telemóvel e cartão em vermelho vivo com o nome do colega em apuros.
+               - Botão de 1 toque **"🧭 NAVEGAR (GPS)"** para traçar rota direta no Waze/Google Maps até às coordenadas exatas do colega.
+               - Botão rápido **"💬 WHATSAPP"** para abrir a conversa/grupo de imediato.
+               - Botão de teste adicionado no ecrã de Segurança para testar o Pop-up no telemóvel.
+            2. **⚡ Leitor de Viagens Otimizado e Mais Inteligente**:
+               - **Fim dos bloqueios de falsos GPS:** Viagens com paragens intermédias e ofertas com contagem decrescente de aceitação passam a ser lidas sem falhas.
+               - **Suporte ao Uber Trip Radar:** Reconhece botões de "Corresponder", "Radar" e "Ver detalhes".
+               - **Suporte a preços redondos:** Reconhece valores inteiros sem cêntimos (ex: 5 €, 12 €).
+               - **Filtro anti-repetição reduzido:** Reduzido de 30s para 5s para não ignorar corridas seguidas de valor semelhante.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
