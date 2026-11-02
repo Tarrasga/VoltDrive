@@ -1,5 +1,9 @@
 package com.voltdrive.app
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -15,15 +19,20 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.AlphaAnimation
+import android.view.animation.Animation
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.app.NotificationCompat
 import java.util.Locale
 
 object OverlayManager {
     private var windowManager: WindowManager? = null
     private var currentView: View? = null
+    private var borderView: View? = null
+    private const val SOS_NOTIFICATION_ID = 9999
     private val handler = Handler(Looper.getMainLooper())
     private var autoDismissRunnable: Runnable? = null
 
@@ -66,7 +75,7 @@ object OverlayManager {
         }
     }
 
-    fun hideOverlay() {
+    fun hideOverlay(context: Context? = null) {
         lastDismissedGrossFare = currentGrossFare
         lastDismissedDistanceKm = currentDistanceKm
         lastDismissedTimestamp = System.currentTimeMillis()
@@ -74,9 +83,172 @@ object OverlayManager {
 
         if (Looper.myLooper() == Looper.getMainLooper()) {
             removeCurrentViewInternal()
+            hideRedBorder()
+            context?.let { cancelSosNotification(it) }
         } else {
-            handler.post { removeCurrentViewInternal() }
+            handler.post {
+                removeCurrentViewInternal()
+                hideRedBorder()
+                context?.let { cancelSosNotification(it) }
+            }
         }
+    }
+
+    fun showRedBorder(context: Context) {
+        val appContext = context.applicationContext ?: context
+        if (!canDrawOverlays(appContext)) return
+
+        handler.post {
+            if (borderView != null) return@post
+
+            val wm = appContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return@post
+
+            val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            }
+
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                layoutType,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                android.graphics.PixelFormat.TRANSLUCENT
+            )
+
+            val frame = FrameLayout(appContext)
+            val strokeWidth = dpToPx(appContext, 6f)
+            val borderDrawable = GradientDrawable().apply {
+                setColor(Color.TRANSPARENT)
+                setStroke(strokeWidth, Color.parseColor("#FF0038")) // Vermelho vivo fluorescente de emergência
+            }
+            frame.background = borderDrawable
+
+            // Efeito Edge Lighting: pulsação contínua da borda vermelha para chamar máxima atenção
+            val anim = AlphaAnimation(1.0f, 0.30f).apply {
+                duration = 650
+                repeatMode = Animation.REVERSE
+                repeatCount = Animation.INFINITE
+            }
+            frame.startAnimation(anim)
+
+            borderView = frame
+            try {
+                wm.addView(frame, params)
+                android.util.Log.d("VoltDrive", "Red border overlay displayed successfully!")
+            } catch (e: Exception) {
+                android.util.Log.e("VoltDrive", "Failed to add red border overlay: ${e.message}")
+                borderView = null
+            }
+        }
+    }
+
+    fun hideRedBorder() {
+        handler.post {
+            if (borderView != null) {
+                try {
+                    val wm = windowManager ?: (borderView?.context?.getSystemService(Context.WINDOW_SERVICE) as? WindowManager)
+                    borderView?.clearAnimation()
+                    wm?.removeView(borderView)
+                    android.util.Log.d("VoltDrive", "Red border overlay removed.")
+                } catch (e: Exception) {
+                    android.util.Log.e("VoltDrive", "Failed to remove red border overlay: ${e.message}")
+                }
+                borderView = null
+            }
+        }
+    }
+
+    fun postSosNotification(
+        context: Context,
+        senderName: String,
+        message: String,
+        latitude: Double,
+        longitude: Double
+    ) {
+        val appContext = context.applicationContext ?: context
+        val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        val channelId = "voltdrive_sos_channel"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "🚨 Alertas de Emergência SOS",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notificações prioritárias de pedidos de socorro TVDE com navegação GPS"
+                enableLights(true)
+                lightColor = Color.RED
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 450, 200, 450, 200, 450)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setBypassDnd(true)
+            }
+            nm.createNotificationChannel(channel)
+        }
+
+        // Action 1: Navegar no GPS (Waze / Google Maps)
+        val navUri = Uri.parse("google.navigation:q=$latitude,$longitude")
+        val navIntent = Intent(Intent.ACTION_VIEW, navUri).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val navPendingIntent = PendingIntent.getActivity(
+            appContext,
+            101,
+            navIntent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE else PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Action 2: Abrir WhatsApp diretamente
+        val waIntent = appContext.packageManager.getLaunchIntentForPackage("com.whatsapp")
+            ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/"))
+        waIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val waPendingIntent = PendingIntent.getActivity(
+            appContext,
+            102,
+            waIntent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE else PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Action 3: Tocar na notificação abre o VoltDrive
+        val openIntent = Intent(appContext, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val openPendingIntent = PendingIntent.getActivity(
+            appContext,
+            100,
+            openIntent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE else PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val iconRes = appContext.applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_alert
+
+        val builder = NotificationCompat.Builder(appContext, channelId)
+            .setSmallIcon(iconRes)
+            .setContentTitle("🚨 SOS: $senderName precisa de apoio!")
+            .setContentText(if (message.isNotEmpty() && !message.contains("null")) message else "Localização GPS recebida. Toca para prestar auxílio.")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setColor(Color.parseColor("#EF4444"))
+            .setColorized(true)
+            .setContentIntent(openPendingIntent)
+            .addAction(0, "🧭 NAVEGAR (GPS)", navPendingIntent)
+            .addAction(0, "💬 WHATSAPP", waPendingIntent)
+            .setVibrate(longArrayOf(0, 450, 200, 450, 200, 450))
+
+        nm.notify(SOS_NOTIFICATION_ID, builder.build())
+    }
+
+    fun cancelSosNotification(context: Context) {
+        val appContext = context.applicationContext ?: context
+        val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        nm?.cancel(SOS_NOTIFICATION_ID)
     }
 
     fun showTripOffer(
@@ -402,10 +574,18 @@ object OverlayManager {
         longitude: Double
     ): Boolean {
         val appContext = context.applicationContext ?: context
+
+        // 1. DISPARAR SEMPRE NOTIFICAÇÃO NATIVA DO SISTEMA ANDROID COM ALTA PRIORIDADE E BOTÕES
+        postSosNotification(appContext, senderName, message, latitude, longitude)
+
+        // 2. SE NÃO TEM PERMISSÃO DE OVERLAY, REGISTA AVISO (A NOTIFICAÇÃO DO ANDROID JÁ DISPAROU)
         if (!canDrawOverlays(appContext)) {
-            android.util.Log.w("VoltDrive", "Cannot draw overlays: permission not granted!")
+            android.util.Log.w("VoltDrive", "Cannot draw overlays: permission not granted! Notification posted instead.")
             return false
         }
+
+        // 3. ATIVAR A LINHA VERMELHA DE EMERGÊNCIA (EDGE LIGHTING) A PISCAR À VOLTA DO ECRÃ
+        showRedBorder(appContext)
 
         handler.post {
             removeCurrentViewInternal()
@@ -512,7 +692,7 @@ object OverlayManager {
                 layoutParams = LinearLayout.LayoutParams(dpToPx(appContext, 32f), dpToPx(appContext, 32f))
                 isClickable = true
                 isFocusable = false
-                setOnClickListener { hideOverlay() }
+                setOnClickListener { hideOverlay(appContext) }
             }
 
             headerRow.addView(sosBadge)
@@ -578,7 +758,7 @@ object OverlayManager {
                             appContext.startActivity(mapIntent)
                         } catch (_: Exception) {}
                     }
-                    hideOverlay()
+                    hideOverlay(appContext)
                 }
             }
 
@@ -607,7 +787,7 @@ object OverlayManager {
                             appContext.startActivity(waIntent)
                         }
                     } catch (_: Exception) {}
-                    hideOverlay()
+                    hideOverlay(appContext)
                 }
             }
 
@@ -629,7 +809,7 @@ object OverlayManager {
             }
 
             // Auto-dismiss após 45 segundos
-            autoDismissRunnable = Runnable { hideOverlay() }
+            autoDismissRunnable = Runnable { hideOverlay(appContext) }
             handler.postDelayed(autoDismissRunnable!!, 45000L)
         }
         return true

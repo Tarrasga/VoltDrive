@@ -102,7 +102,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Pop-up de Alerta SOS & Otimização do Leitor)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Notificação do Sistema, Linha Vermelha no Ecrã & Pop-up SOS)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
@@ -110,16 +110,15 @@ jobs:
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
             ### 🚀 Novidades e Correções:
-            1. **🚨 Pop-up Flutuante de Emergência SOS no Ecrã**:
-               - Quando um colega da equipa TVDE dispara um SOS (ou ao testar o alerta), surge de imediato um Pop-up flutuante de emergência por cima de qualquer aplicação (Uber, Bolt, Waze, Google Maps).
-               - Alerta com vibração no telemóvel e cartão em vermelho vivo com o nome do colega em apuros.
-               - Botão de 1 toque **"🧭 NAVEGAR (GPS)"** para traçar rota direta no Waze/Google Maps até às coordenadas exatas do colega.
-               - Botão rápido **"💬 WHATSAPP"** para abrir a conversa/grupo de imediato.
-               - Botão de teste adicionado no ecrã de Segurança para testar o Pop-up no telemóvel.
-            2. **⚡ Leitor de Viagens Otimizado e Mais Inteligente**:
-               - **Fim dos bloqueios de falsos GPS:** Viagens com paragens intermédias e ofertas com contagem decrescente de aceitação passam a ser lidas sem falhas.
-               - **Suporte ao Uber Trip Radar:** Reconhece botões de "Corresponder", "Radar" e "Ver detalhes".
-               - **Suporte a preços redondos:** Reconhece valores inteiros sem cêntimos (ex: 5 €, 12 €).
-               - **Filtro anti-repetição reduzido:** Reduzido de 30s para 5s para não ignorar corridas seguidas de valor semelhante.
+            1. **🚨 Notificação Nativa do Sistema Android**:
+               - O alerta de SOS dispara agora uma Notificação de Sistema no Android com Prioridade Máxima (Heads-up / Pop-up de topo).
+               - Inclui som de alarme, vibração forte e botões diretos de 1 toque: **"🧭 NAVEGAR (GPS)"** e **"💬 WHATSAPP"**.
+               - Funciona mesmo que a permissão de sobreposição ainda não tenha sido concedida!
+            2. **🔴 Linha Vermelha Pulsante à Volta do Ecrã (Edge Lighting de Emergência)**:
+               - Desenha uma borda vermelha brilhante contínua a pulsar nos 4 cantos do telemóvel enquanto o alerta estiver ativo.
+               - Totalmente transparente aos toques do motorista (podes continuar a mexer no GPS/Uber/Bolt sem interferência).
+               - Desliga-se automaticamente assim que visualizas, dispensas ou abres a notificação.
+            3. **⚙️ Assistente Rápido de Permissões**:
+               - Botão direto no ecrã de Segurança que abre as definições do Android para ativar "Aparecer sobre outras apps" sem teres de procurar nos menus.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -16,6 +16,7 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
   LocationResult? _myLocation;
   bool _isLoadingLoc = false;
   bool _obscurePassword = true;
+  bool _hasOverlayPermission = true;
 
   final TextEditingController _teamCodeController = TextEditingController();
   final TextEditingController _teamPasswordController = TextEditingController();
@@ -49,7 +50,15 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
     _teamPasswordController.text = BuddySafetyService.teamPassword;
     _driverNameController.text = BuddySafetyService.driverName;
     _emergencyPhoneController.text = BuddySafetyService.emergencyPhone;
+    _checkOverlayPermission();
     _refreshLocation();
+  }
+
+  Future<void> _checkOverlayPermission() async {
+    final granted = await AssistantService.isOverlayGranted();
+    if (mounted) {
+      setState(() => _hasOverlayPermission = granted);
+    }
   }
 
   Future<void> _refreshLocation() async {
@@ -718,23 +727,127 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
               ],
             ),
             const SizedBox(height: 8),
+            // AVISO E BOTÃO DIRETO PARA ATIVAR CASO NÃO TENHA PERMISSÃO DE OVERLAY
+            if (!_hasOverlayPermission)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.warningAmber.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.warningAmber.withOpacity(0.6)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.picture_in_picture_alt_rounded, color: AppTheme.warningAmber, size: 22),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ativar Pop-up & Linha Vermelha',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Toca para permitir "Aparecer sobre outras apps".',
+                            style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await AssistantService.requestOverlayPermission();
+                        Future.delayed(const Duration(seconds: 1), _checkOverlayPermission);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.warningAmber,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Ativar ➔', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                  ],
+                ),
+              ),
+
             SizedBox(
               width: double.infinity,
               child: TextButton.icon(
                 onPressed: () async {
                   final shown = await AssistantService.showTestSosOverlay();
+                  await _checkOverlayPermission();
+
                   if (!shown && context.mounted) {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: AppTheme.darkCard,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: const BorderSide(color: AppTheme.warningAmber, width: 1.5),
+                        ),
+                        title: const Row(
+                          children: [
+                            Icon(Icons.shield_outlined, color: AppTheme.warningAmber),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Linha Vermelha & Pop-up',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                        content: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '🔔 A Notificação de Alerta já foi disparada no topo do teu telemóvel com botões de Navegar (GPS) e WhatsApp!',
+                              style: TextStyle(color: AppTheme.accentGreen, fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Para veres também a linha vermelha a piscar à volta do ecrã e o Pop-up por cima da Uber, Bolt e Waze, ativa "Aparecer sobre outras apps".',
+                              style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Mais Tarde', style: TextStyle(color: AppTheme.textMuted)),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              await AssistantService.requestOverlayPermission();
+                              Future.delayed(const Duration(seconds: 1), _checkOverlayPermission);
+                            },
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warningAmber),
+                            child: const Text('Abrir Definições ➔', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    );
+                  } else if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Ativa a permissão "Aparecer sobre outras apps" nas definições para ver o Pop-up!'),
-                        backgroundColor: AppTheme.warningAmber,
+                        content: Text('🚨 Alerta SOS disparado! Notificação + Linha Vermelha + Pop-up ativos.'),
+                        backgroundColor: AppTheme.accentGreen,
+                        duration: Duration(seconds: 4),
                       ),
                     );
                   }
                 },
                 icon: const Icon(Icons.picture_in_picture_alt_rounded, size: 16, color: AppTheme.accentGreen),
                 label: const Text(
-                  '👁️ Testar Pop-up de Alerta SOS no Ecrã',
+                  '👁️ Testar Alerta SOS (Notificação + Linha Vermelha + Pop-up)',
                   style: TextStyle(color: AppTheme.accentGreen, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
                 style: TextButton.styleFrom(

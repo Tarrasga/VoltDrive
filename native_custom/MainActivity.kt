@@ -258,7 +258,7 @@ class MainActivity: FlutterFragmentActivity() {
                     result.success(shown)
                 }
                 "hideOverlay" -> {
-                    OverlayManager.hideOverlay()
+                    OverlayManager.hideOverlay(applicationContext)
                     result.success(true)
                 }
                 "updateSettings" -> {
@@ -458,10 +458,10 @@ class MainActivity: FlutterFragmentActivity() {
                             @Suppress("DEPRECATION")
                             packageManager.getPackageInfo(packageName, 0)
                         }
-                        val vName = pInfo.versionName ?: "1.0.42"
+                        val vName = pInfo.versionName ?: "1.0.43"
                         result.success(vName)
                     } catch (e: Exception) {
-                        result.success("1.0.42")
+                        result.success("1.0.43")
                     }
                 }
                 else -> result.notImplemented()
