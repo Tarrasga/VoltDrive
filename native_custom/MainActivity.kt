@@ -530,10 +530,10 @@ class MainActivity: FlutterFragmentActivity() {
                             @Suppress("DEPRECATION")
                             packageManager.getPackageInfo(packageName, 0)
                         }
-                        val vName = pInfo.versionName ?: "1.0.46"
+                        val vName = pInfo.versionName ?: "1.0.47"
                         result.success(vName)
                     } catch (e: Exception) {
-                        result.success("1.0.46")
+                        result.success("1.0.47")
                     }
                 }
                 else -> result.notImplemented()
@@ -930,21 +930,6 @@ class MainActivity: FlutterFragmentActivity() {
         canvas.drawText(String.format(Locale.ROOT, "%.2f €", totalGross), 95f, curRowY + 12f, paint)
         canvas.drawText(String.format(Locale.ROOT, "%.0f km", totalKm), 180f, curRowY + 12f, paint)
         canvas.drawText(String.format(Locale.ROOT, "%.1f h", totalHours), 235f, curRowY + 12f, paint)
-        canvas.drawText(String.format(Locale.ROOT, "%.2f €", chargingCost), 295f, curRowY + 12f, paint)
-        canvas.drawText(String.format(Locale.ROOT, "%.2f €", tollsCost), 365f, curRowY + 12f, paint)
-        canvas.drawText(String.format(Locale.ROOT, "%.2f €", otherExpenses), 435f, curRowY + 12f, paint)
-
-        paint.color = Color.parseColor("#16A34A")
-        canvas.drawText(String.format(Locale.ROOT, "%.2f €", netProfit), 500f, curRowY + 12f, paint)
-
-        // Rodapé da Página
-        paint.color = Color.parseColor("#94A3B8")
-        paint.textSize = 8f
-        paint.typeface = Typeface.DEFAULT
-        val nowStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ROOT).format(Date())
-        canvas.drawText("VoltDrive • Documento de gestão TVDE para motorista e contabilidade • Gerado em $nowStr", 30f, 815f, paint)
-
-        pdfDocument.finishPage(page)
         canvas.drawText(String.format(Locale.ROOT, "%.2f €", chargingCost), 295f, curRowY + 12f, paint)
         canvas.drawText(String.format(Locale.ROOT, "%.2f €", tollsCost), 365f, curRowY + 12f, paint)
         canvas.drawText(String.format(Locale.ROOT, "%.2f €", otherExpenses), 435f, curRowY + 12f, paint)

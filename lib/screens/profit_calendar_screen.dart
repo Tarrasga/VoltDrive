@@ -11,6 +11,7 @@ import 'financial_goals_screen.dart';
 import '../widgets/financial_goals_card.dart';
 
 enum CalendarViewType { month, week, day }
+enum MonthSummaryTab { month, week }
 
 class ProfitCalendarScreen extends StatefulWidget {
   const ProfitCalendarScreen({super.key});
@@ -21,6 +22,7 @@ class ProfitCalendarScreen extends StatefulWidget {
 
 class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
   CalendarViewType _viewType = CalendarViewType.month;
+  MonthSummaryTab _monthSummaryTab = MonthSummaryTab.month;
   DateTime _selectedDate = DateTime.now();
   List<DailyShift> _allShifts = [];
   VehicleProfile _profile = VehicleProfile();
@@ -75,11 +77,46 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
     return _allShifts.where((s) => s.date.year == _selectedDate.year && s.date.month == _selectedDate.month).toList();
   }
 
-  List<DailyShift> _getShiftsForCurrentWeek() {
-    final monday = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
+  List<DailyShift> _getShiftsForWeekOf(DateTime date) {
+    final monday = date.subtract(Duration(days: date.weekday - 1));
     final start = DateTime(monday.year, monday.month, monday.day);
     final end = start.add(const Duration(days: 7));
     return _allShifts.where((s) => s.date.isAfter(start.subtract(const Duration(seconds: 1))) && s.date.isBefore(end)).toList();
+  }
+
+  List<DailyShift> _getShiftsForCurrentWeek() {
+    return _getShiftsForWeekOf(_selectedDate);
+  }
+
+  bool _isDateInCurrentWeek(DateTime date) {
+    final now = DateTime.now();
+    final mondayNow = now.subtract(Duration(days: now.weekday - 1));
+    final start = DateTime(mondayNow.year, mondayNow.month, mondayNow.day);
+    final end = start.add(const Duration(days: 7));
+    return date.isAfter(start.subtract(const Duration(seconds: 1))) && date.isBefore(end);
+  }
+
+  int _isoWeekNumber(DateTime date) {
+    final d = DateTime.utc(date.year, date.month, date.day);
+    final dayNr = (d.weekday - 1);
+    final thursday = d.subtract(Duration(days: dayNr - 3));
+    final firstThursday = DateTime.utc(thursday.year, 1, 4);
+    final weekNumber = 1 + ((thursday.difference(firstThursday).inDays) / 7).floor();
+    return weekNumber;
+  }
+
+  String _formatWeekRange(DateTime date) {
+    final monday = date.subtract(Duration(days: date.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
+    const ptMonths = [
+      'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+    ];
+    if (monday.month == sunday.month) {
+      return '${monday.day} a ${sunday.day} ${ptMonths[monday.month - 1]}';
+    } else {
+      return '${monday.day} ${ptMonths[monday.month - 1]} a ${sunday.day} ${ptMonths[sunday.month - 1]}';
+    }
   }
 
   void _previousPeriod() {
@@ -645,19 +682,38 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
     final avgNetPerDay = daysWorked > 0 ? (realNetProfit / daysWorked) : 0.0;
     final avgNetPerKm = totalKm > 0 ? (realNetProfit / totalKm) : 0.0;
 
+    // Dados da Semana (semana da data selecionada / semana atual)
+    final activeWeekDate = _selectedDate;
+    final weekShifts = _getShiftsForWeekOf(activeWeekDate);
+    final weekNet = weekShifts.fold<double>(0.0, (sum, s) => sum + s.netProfit);
+    final weekGross = weekShifts.fold<double>(0.0, (sum, s) => sum + s.totalGross);
+    final weekKm = weekShifts.fold<double>(0.0, (sum, s) => sum + s.totalKm);
+    final weekCharging = weekShifts.fold<double>(0.0, (sum, s) => sum + s.chargingCost);
+    final weekHours = weekShifts.fold<double>(0.0, (sum, s) => sum + s.hoursWorked);
+    final weekDaysWorked = weekShifts.length;
+    final avgWeekNetPerKm = weekKm > 0 ? (weekNet / weekKm) : 0.0;
+    final isCurrentWeek = _isDateInCurrentWeek(activeWeekDate);
+    final weekRangeStr = _formatWeekRange(activeWeekDate);
+    final weekNumber = _isoWeekNumber(activeWeekDate);
+
+    const ptMonths = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // METAS DO MÊS & RITMO DIÁRIO
+        // METAS DO MÊS / SEMANA & RITMO DIÁRIO
         FinancialGoalsCard(
           goals: _goals,
           shifts: _allShifts,
-          isMonthView: true,
-          monthlyExpensesTotal: totalMonthlyExpenses,
+          isMonthView: _monthSummaryTab == MonthSummaryTab.month,
+          monthlyExpensesTotal: _monthSummaryTab == MonthSummaryTab.month ? totalMonthlyExpenses : 0.0,
           onGoalsChanged: _loadData,
         ),
 
-        // RESUMO DO MÊS (CARDS)
+        // RESUMO DO MÊS & SEMANA ATUAL (CARDS)
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -667,86 +723,394 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
           ),
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('LUCRO LÍQUIDO REAL DO MÊS', style: TextStyle(color: AppTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${realNetProfit >= 0 ? '+' : ''}${realNetProfit.toStringAsFixed(2)} €',
-                        style: TextStyle(
-                          color: realNetProfit >= 0 ? AppTheme.accentGreen : AppTheme.dangerRed,
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (totalMonthlyExpenses > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            'Deduzidas despesas mensais de -${totalMonthlyExpenses.toStringAsFixed(2)} €',
-                            style: const TextStyle(color: AppTheme.warningAmber, fontSize: 10, fontWeight: FontWeight.bold),
+              // SELETOR INTERNO: [ 📅 Mês (Novembro) ]  [ ⚡ Semana Atual (2 a 8 Nov) ]
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.darkBorder),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _monthSummaryTab = MonthSummaryTab.month),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _monthSummaryTab == MonthSummaryTab.month ? AppTheme.primaryElectric : Colors.transparent,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.calendar_month,
+                                size: 15,
+                                color: _monthSummaryTab == MonthSummaryTab.month ? Colors.black : AppTheme.textMuted,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Mês (${ptMonths[_selectedDate.month - 1]})',
+                                style: TextStyle(
+                                  color: _monthSummaryTab == MonthSummaryTab.month ? Colors.black : AppTheme.textMuted,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${realNetProfit >= 0 ? '+' : ''}${realNetProfit.toStringAsFixed(0)}€',
+                                style: TextStyle(
+                                  color: _monthSummaryTab == MonthSummaryTab.month ? Colors.black : AppTheme.accentGreen,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _monthSummaryTab = MonthSummaryTab.week),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _monthSummaryTab == MonthSummaryTab.week ? AppTheme.accentGreen : Colors.transparent,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.bolt,
+                                size: 16,
+                                color: _monthSummaryTab == MonthSummaryTab.week ? Colors.black : AppTheme.accentGreen,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isCurrentWeek ? 'Semana Atual' : 'Semana',
+                                style: TextStyle(
+                                  color: _monthSummaryTab == MonthSummaryTab.week ? Colors.black : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${weekNet >= 0 ? '+' : ''}${weekNet.toStringAsFixed(0)}€',
+                                style: TextStyle(
+                                  color: _monthSummaryTab == MonthSummaryTab.week ? Colors.black : AppTheme.accentGreen,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              if (_monthSummaryTab == MonthSummaryTab.month) ...[
+                // CONTEÚDO DO MÊS
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('LUCRO LÍQUIDO REAL DO MÊS', style: TextStyle(color: AppTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${realNetProfit >= 0 ? '+' : ''}${realNetProfit.toStringAsFixed(2)} €',
+                          style: TextStyle(
+                            color: realNetProfit >= 0 ? AppTheme.accentGreen : AppTheme.dangerRed,
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (totalMonthlyExpenses > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              'Deduzidas despesas mensais de -${totalMonthlyExpenses.toStringAsFixed(2)} €',
+                              style: const TextStyle(color: AppTheme.warningAmber, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentGreen.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$daysWorked DIAS TRABALHADOS',
+                        style: const TextStyle(color: AppTheme.accentGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(color: AppTheme.darkBorder, height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatItem('Bruto Total', '${totalGross.toStringAsFixed(0)} €'),
+                    _buildStatItem('Custo Zoe', '-${totalCharging.toStringAsFixed(0)} €', isCost: true),
+                    _buildStatItem('Desp. Mês', '-${totalMonthlyExpenses.toStringAsFixed(0)} €', isCost: true),
+                    _buildStatItem('Km Totais', '${totalKm.toStringAsFixed(0)} km'),
+                    _buildStatItem('Média / Dia', '${avgNetPerDay.toStringAsFixed(0)} €'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // MINI-CARD DEDICADO DA SEMANA ATUAL NO MÊS
+                GestureDetector(
+                  onTap: () => setState(() => _monthSummaryTab = MonthSummaryTab.week),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppTheme.accentGreen.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppTheme.darkSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.accentGreen.withOpacity(0.5)),
                     ),
-                    child: Text(
-                      '$daysWorked DIAS TRABALHADOS',
-                      style: const TextStyle(color: AppTheme.accentGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentGreen.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.bolt, color: AppTheme.accentGreen, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    isCurrentWeek ? 'Semana Atual' : 'Semana Selecionada',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.darkCard,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '$weekRangeStr • Sem. $weekNumber',
+                                      style: const TextStyle(color: AppTheme.textMuted, fontSize: 10),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$weekDaysWorked de 7 dias trabalhados • Bruto: ${weekGross.toStringAsFixed(0)} € • ${weekKm.toStringAsFixed(0)} km',
+                                style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${weekNet >= 0 ? '+' : ''}${weekNet.toStringAsFixed(2)} €',
+                              style: TextStyle(
+                                color: weekNet >= 0 ? AppTheme.accentGreen : AppTheme.dangerRed,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const Row(
+                              children: [
+                                Text('Ver', style: TextStyle(color: AppTheme.accentGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                                Icon(Icons.chevron_right, color: AppTheme.accentGreen, size: 12),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-              const Divider(color: AppTheme.darkBorder, height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatItem('Bruto Total', '${totalGross.toStringAsFixed(0)} €'),
-                  _buildStatItem('Custo Zoe', '-${totalCharging.toStringAsFixed(0)} €', isCost: true),
-                  _buildStatItem('Desp. Mês', '-${totalMonthlyExpenses.toStringAsFixed(0)} €', isCost: true),
-                  _buildStatItem('Km Totais', '${totalKm.toStringAsFixed(0)} km'),
-                  _buildStatItem('Média / Dia', '${avgNetPerDay.toStringAsFixed(0)} €'),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _exportMonthlyPdf,
-                      icon: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.primaryElectric, size: 17),
-                      label: const Text('Exportar PDF', style: TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 12)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppTheme.primaryElectric),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _exportMonthlyPdf,
+                        icon: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.primaryElectric, size: 17),
+                        label: const Text('Exportar PDF', style: TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppTheme.primaryElectric),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _exportMonthlySpreadsheet,
-                      icon: const Icon(Icons.table_chart_rounded, color: Colors.white, size: 17),
-                      label: const Text('Folha Excel (CSV)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF107C41),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _exportMonthlySpreadsheet,
+                        icon: const Icon(Icons.table_chart_rounded, color: Colors.white, size: 17),
+                        label: const Text('Folha Excel (CSV)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF107C41),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
                     ),
+                  ],
+                ),
+              ] else ...[
+                // CONTEÚDO DA SEMANA
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              isCurrentWeek ? 'LUCRO DA SEMANA ATUAL' : 'LUCRO DA SEMANA',
+                              style: const TextStyle(color: AppTheme.accentGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '($weekRangeStr)',
+                              style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${weekNet >= 0 ? '+' : ''}${weekNet.toStringAsFixed(2)} €',
+                          style: TextStyle(
+                            color: weekNet >= 0 ? AppTheme.accentGreen : AppTheme.dangerRed,
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentGreen.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$weekDaysWorked DE 7 DIAS',
+                        style: const TextStyle(color: AppTheme.accentGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(color: AppTheme.darkBorder, height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatItem('Bruto Semana', '${weekGross.toStringAsFixed(0)} €'),
+                    _buildStatItem('Custo Zoe', '-${weekCharging.toStringAsFixed(0)} €', isCost: true),
+                    _buildStatItem('Km Totais', '${weekKm.toStringAsFixed(0)} km'),
+                    _buildStatItem('Horas', '${weekHours.toStringAsFixed(1)} h'),
+                    _buildStatItem('Média / Km', '${avgWeekNetPerKm.toStringAsFixed(2)} €'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // MINI-CARD INFORMATIVO DO TOTAL DO MÊS
+                GestureDetector(
+                  onTap: () => setState(() => _monthSummaryTab = MonthSummaryTab.month),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.darkSurface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.darkBorder),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_month, color: AppTheme.primaryElectric, size: 16),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Acumulado Mês (${ptMonths[_selectedDate.month - 1]}):',
+                              style: const TextStyle(color: Colors.white, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              '${realNetProfit >= 0 ? '+' : ''}${realNetProfit.toStringAsFixed(2)} €',
+                              style: TextStyle(
+                                color: realNetProfit >= 0 ? AppTheme.accentGreen : AppTheme.dangerRed,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_back, color: AppTheme.primaryElectric, size: 12),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => setState(() => _viewType = CalendarViewType.week),
+                        icon: const Icon(Icons.view_week, color: AppTheme.accentGreen, size: 17),
+                        label: const Text('Ver Calendário da Semana', style: TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.bold, fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppTheme.accentGreen),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => setState(() => _monthSummaryTab = MonthSummaryTab.month),
+                        icon: const Icon(Icons.calendar_month, color: Colors.black, size: 17),
+                        label: const Text('Voltar ao Mês', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryElectric,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -971,6 +1335,8 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
               final dayNumber = dayOffset + 1;
               final cellDate = DateTime(year, month, dayNumber);
               final isToday = _isSameDay(cellDate, today);
+              final isCellInCurrentWeek = _isDateInCurrentWeek(cellDate);
+              final isSelectedDate = _isSameDay(cellDate, _selectedDate);
               final shift = _getShiftForDate(cellDate);
 
               return GestureDetector(
@@ -988,15 +1354,19 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                             : (shift.netProfit > 0
                                 ? AppTheme.primaryElectric.withOpacity(0.12)
                                 : AppTheme.dangerRed.withOpacity(0.15)))
-                        : AppTheme.darkSurface,
+                        : (isCellInCurrentWeek ? AppTheme.accentGreen.withOpacity(0.04) : AppTheme.darkSurface),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isToday
                           ? AppTheme.primaryElectric
-                          : (shift != null
-                              ? (shift.netProfit >= 100 ? AppTheme.accentGreen.withOpacity(0.6) : AppTheme.darkBorder)
-                              : Colors.transparent),
-                      width: isToday ? 2 : 1,
+                          : (isSelectedDate
+                              ? AppTheme.accentGreen
+                              : (isCellInCurrentWeek
+                                  ? AppTheme.accentGreen.withOpacity(0.4)
+                                  : (shift != null
+                                      ? (shift.netProfit >= 100 ? AppTheme.accentGreen.withOpacity(0.6) : AppTheme.darkBorder)
+                                      : Colors.transparent))),
+                      width: isToday ? 2 : (isSelectedDate ? 1.8 : (isCellInCurrentWeek ? 1.2 : 1)),
                     ),
                   ),
                   child: Column(

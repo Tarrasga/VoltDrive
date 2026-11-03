@@ -24,7 +24,7 @@ class AppUpdateInfo {
 
 class UpdateService {
   // Versão padrão de fallback caso a leitura do sistema Android ainda não tenha ocorrido
-  static const String defaultVersion = '1.0.46';
+  static const String defaultVersion = '1.0.47';
   static String _currentVersion = defaultVersion;
 
   // Versão atual instalada da app (lida dinamicamente do sistema Android)
