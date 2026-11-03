@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/daily_shift.dart';
 import '../models/financial_goals.dart';
+import '../models/monthly_expense.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 
@@ -39,6 +40,10 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
 
   List<DailyShift> _shifts = [];
   FinancialGoals _goals = FinancialGoals();
+  List<MonthlyExpense> _monthlyExpenses = [];
+  final Map<String, TextEditingController> _titleControllers = {};
+  final Map<String, TextEditingController> _amountControllers = {};
+
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -50,6 +55,48 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
     } catch (_) {
       return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
     }
+  }
+
+  double _calcTotalExpenses() {
+    double total = 0.0;
+    for (final exp in _monthlyExpenses) {
+      final ctrl = _amountControllers[exp.id];
+      if (ctrl != null) {
+        total += double.tryParse(ctrl.text.replaceAll(',', '.')) ?? 0.0;
+      } else {
+        total += exp.amount;
+      }
+    }
+    return total;
+  }
+
+  void _addExpense({String title = '', double amount = 0.0, bool isRecurring = false, String category = 'other'}) {
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final now = DateTime.now();
+    final currentMonthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final exp = MonthlyExpense(
+      id: id,
+      monthKey: isRecurring ? '' : currentMonthKey,
+      title: title.isEmpty ? 'Nova Despesa' : title,
+      amount: amount,
+      isRecurring: isRecurring,
+      category: category,
+    );
+    _titleControllers[id] = TextEditingController(text: exp.title);
+    _amountControllers[id] = TextEditingController(text: amount > 0 ? amount.toStringAsFixed(2) : '');
+    setState(() {
+      _monthlyExpenses.add(exp);
+    });
+  }
+
+  void _removeExpense(String id) {
+    setState(() {
+      _monthlyExpenses.removeWhere((e) => e.id == id);
+      _titleControllers[id]?.dispose();
+      _titleControllers.remove(id);
+      _amountControllers[id]?.dispose();
+      _amountControllers.remove(id);
+    });
   }
 
   @override
@@ -64,6 +111,12 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
   void dispose() {
     _monthlyController.dispose();
     _weeklyController.dispose();
+    for (final c in _titleControllers.values) {
+      c.dispose();
+    }
+    for (final c in _amountControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -71,11 +124,20 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
     try {
       final loadedGoals = await StorageService.loadFinancialGoals();
       final loadedShifts = widget.preloadedShifts ?? await StorageService.loadShifts();
+      final now = DateTime.now();
+      final loadedExpenses = await StorageService.getExpensesForMonth(now.year, now.month);
 
       if (mounted) {
         setState(() {
           _goals = loadedGoals;
           _shifts = loadedShifts;
+          _monthlyExpenses = List.from(loadedExpenses);
+
+          for (final exp in _monthlyExpenses) {
+            _titleControllers[exp.id] = TextEditingController(text: exp.title);
+            _amountControllers[exp.id] = TextEditingController(text: exp.amount > 0 ? exp.amount.toStringAsFixed(2) : '');
+          }
+
           _monthlyController.text = loadedGoals.monthlyTarget > 0 ? loadedGoals.monthlyTarget.toStringAsFixed(0) : '';
           _weeklyController.text = loadedGoals.weeklyTarget > 0 ? loadedGoals.weeklyTarget.toStringAsFixed(0) : '';
           _targetType = loadedGoals.targetType;
@@ -107,6 +169,24 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
     );
 
     await StorageService.saveFinancialGoals(updated);
+
+    // Guardar lista de despesas mensais atualizadas
+    final updatedExpenses = <MonthlyExpense>[];
+    final now = DateTime.now();
+    final currentMonthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+
+    for (final exp in _monthlyExpenses) {
+      final title = _titleControllers[exp.id]?.text.trim() ?? exp.title;
+      final amount = double.tryParse(_amountControllers[exp.id]?.text.replaceAll(',', '.') ?? '') ?? 0.0;
+      if (title.isNotEmpty) {
+        updatedExpenses.add(exp.copyWith(
+          title: title,
+          amount: amount,
+          monthKey: exp.isRecurring ? '' : (exp.monthKey.isEmpty ? currentMonthKey : exp.monthKey),
+        ));
+      }
+    }
+    await StorageService.saveMonthlyExpenses(updatedExpenses);
 
     if (mounted) {
       setState(() {
@@ -142,7 +222,8 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
       workDaysPerWeek: _workDaysPerWeek,
     );
 
-    final monthPace = tempGoals.calculateMonthlyPace(_shifts);
+    final totalExpenses = _calcTotalExpenses();
+    final monthPace = tempGoals.calculateMonthlyPace(_shifts, monthlyExpensesTotal: totalExpenses);
     final weekPace = tempGoals.calculateWeeklyPace(_shifts);
 
     final now = DateTime.now();
@@ -699,8 +780,221 @@ class _FinancialGoalsScreenState extends State<FinancialGoalsScreen> {
               _buildWorkDaysChip(7, '7 dias (sem folga)'),
             ],
           ),
+
+          const SizedBox(height: 22),
+          const Divider(color: AppTheme.darkBorder),
+          const SizedBox(height: 12),
+
+          // DESPESAS MENSAIS (BATERIAS, VIA VERDE, PNEUS...)
+          _buildMonthlyExpensesSection(),
         ],
       ),
+    );
+  }
+
+  Widget _buildMonthlyExpensesSection() {
+    final total = _calcTotalExpenses();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.receipt_long_rounded, color: AppTheme.warningAmber, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Despesas Mensais do Carro',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.warningAmber.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '-${_formatCurrency(total)}',
+                style: const TextStyle(color: AppTheme.warningAmber, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Valores de Baterias Zoe, Via Verde, Pneus ou outras despesas. São descontados no balanço mensal e aparecem na folha exportada.',
+          style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+        ),
+        const SizedBox(height: 12),
+
+        // Atalhos rápidos para adicionar campos comuns
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            ActionChip(
+              avatar: const Icon(Icons.battery_charging_full, size: 14, color: AppTheme.accentGreen),
+              label: const Text('+ Baterias Zoe'),
+              labelStyle: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+              backgroundColor: AppTheme.darkSurface,
+              onPressed: () => _addExpense(title: 'Baterias (Aluguer Zoe)', amount: 0.0, isRecurring: true, category: 'battery'),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.toll, size: 14, color: AppTheme.primaryElectric),
+              label: const Text('+ Via Verde'),
+              labelStyle: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+              backgroundColor: AppTheme.darkSurface,
+              onPressed: () => _addExpense(title: 'Via Verde / Portagens', amount: 0.0, isRecurring: true, category: 'tolls'),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.tire_repair, size: 14, color: AppTheme.warningAmber),
+              label: const Text('+ Pneus'),
+              labelStyle: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+              backgroundColor: AppTheme.darkSurface,
+              onPressed: () => _addExpense(title: 'Pneus', amount: 0.0, isRecurring: false, category: 'maintenance'),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.security, size: 14, color: Colors.purpleAccent),
+              label: const Text('+ Seguro'),
+              labelStyle: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+              backgroundColor: AppTheme.darkSurface,
+              onPressed: () => _addExpense(title: 'Seguro TVDE', amount: 0.0, isRecurring: true, category: 'insurance'),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.add, size: 14, color: Colors.white),
+              label: const Text('+ Campo Editável'),
+              labelStyle: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+              backgroundColor: AppTheme.darkSurface,
+              onPressed: () => _addExpense(title: 'Nova Despesa', amount: 0.0, isRecurring: false, category: 'other'),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // Lista de campos editáveis
+        if (_monthlyExpenses.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.darkSurface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: Text(
+                'Sem despesas mensais adicionadas. Toca nos botões acima para adicionar.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+              ),
+            ),
+          )
+        else
+          ..._monthlyExpenses.map((exp) {
+            final titleCtrl = _titleControllers[exp.id];
+            final amountCtrl = _amountControllers[exp.id];
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.darkSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.darkBorder.withOpacity(0.8)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      // Nome Editável da Despesa
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: titleCtrl,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            hintText: 'Ex: Bateria, Pneus, Via Verde',
+                            hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                            filled: true,
+                            fillColor: AppTheme.darkCard,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Valor Editável em Euros
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: amountCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          style: const TextStyle(color: AppTheme.warningAmber, fontWeight: FontWeight.bold, fontSize: 13),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            hintText: '0.00',
+                            suffixText: '€',
+                            suffixStyle: const TextStyle(color: AppTheme.warningAmber, fontWeight: FontWeight.bold, fontSize: 12),
+                            filled: true,
+                            fillColor: AppTheme.darkCard,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // Remover Despesa
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: AppTheme.dangerRed, size: 18),
+                        tooltip: 'Remover',
+                        onPressed: () => _removeExpense(exp.id),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          final idx = _monthlyExpenses.indexWhere((e) => e.id == exp.id);
+                          if (idx >= 0) {
+                            setState(() {
+                              _monthlyExpenses[idx] = _monthlyExpenses[idx].copyWith(isRecurring: !_monthlyExpenses[idx].isRecurring);
+                            });
+                          }
+                        },
+                        child: Row(
+                          children: [
+                            Icon(
+                              exp.isRecurring ? Icons.repeat : Icons.event_note,
+                              size: 13,
+                              color: exp.isRecurring ? AppTheme.accentGreen : AppTheme.textMuted,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              exp.isRecurring ? 'Repete todos os meses' : 'Apenas para este mês',
+                              style: TextStyle(
+                                color: exp.isRecurring ? AppTheme.accentGreen : AppTheme.textMuted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+      ],
     );
   }
 

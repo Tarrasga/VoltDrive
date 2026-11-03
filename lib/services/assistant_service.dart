@@ -141,6 +141,7 @@ class AssistantService {
     required double profitPerKm,
     required double profitPerHour,
     required List<Map<String, dynamic>> shifts,
+    List<Map<String, dynamic>> monthlyExpenses = const [],
   }) async {
     try {
       final res = await _channel.invokeMethod<bool>('exportMonthlyPdf', {
@@ -163,6 +164,26 @@ class AssistantService {
         'profitPerKm': profitPerKm,
         'profitPerHour': profitPerHour,
         'shifts': shifts,
+        'monthlyExpenses': monthlyExpenses,
+      });
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> shareFile({
+    required String fileName,
+    required String content,
+    String mimeType = 'text/csv',
+    String title = 'Partilhar Ficheiro',
+  }) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('shareFile', {
+        'fileName': fileName,
+        'content': content,
+        'mimeType': mimeType,
+        'title': title,
       });
       return res ?? false;
     } catch (_) {
@@ -251,7 +272,7 @@ class AssistantService {
         return res;
       }
     } catch (_) {}
-    return '1.0.45';
+    return '1.0.46';
   }
 
   static Future<void> hideOverlay() async {

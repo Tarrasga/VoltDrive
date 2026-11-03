@@ -102,22 +102,26 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Fecho Definitivo do Pop-up SOS & Cartão Dedicado no Ecrã)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Despesas Mensais Baterias/Via Verde/Pneus e Exportação Excel & PDF)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
-            ### 🚀 Novidades e Correções:
-            1. **🛑 Fecho Definitivo do Pop-up SOS no Ecrã**:
-               - Ao carregar no botão `✕` para fechar o pop-up ou dispensar o alerta, a janela flutuante e a borda vermelha fecham imediatamente e **NÃO voltam a aparecer** a cada 15 segundos.
-               - O sistema memoriza o alerta dispensado tanto no Kotlin nativo como no Flutter para não perturbar a condução e as apps de navegação (Uber, Bolt, Waze).
-            2. **📋 Visualização Dedicada do Alerta na App ("Ver o Alerta Noutro Lado")**:
-               - Mesmo com o pop-up flutuante fechado, o alerta de emergência do colega permanece visível e acessível:
-                 - **Ecrã Principal / Início**: Barra de aviso no topo com botão direto para GPS (`🧭 GPS`) e opção de fechar.
-                 - **Ecrã de Segurança & Colegas**: Cartão de emergência destacado com distância calculada, navegação GPS, WhatsApp direto e botão **"👁️ Mostrar no Ecrã"** caso queiras voltar a abrir o pop-up flutuante.
-            3. **📜 Histórico Recente de Alertas SOS**:
-               - Secção de histórico no ecrã de Segurança para rever alertas passados e consultar coordenadas GPS a qualquer momento.
+            ### 🚀 Novidades e Melhorias:
+            1. **🔋 Despesas Mensais Editáveis (Baterias Zoe, Via Verde, Pneus, Seguro)**:
+               - Novo módulo no ecrã de Metas e no Calendário de Lucros para registar despesas fixas ou pontuais.
+               - Suporte para campos totalmente editáveis: podes adicionar "Pneus Novos" com o respetivo valor, aluguer de baterias Renault Zoe, portagens Via Verde, seguro TVDE, etc.
+               - Opção de despesa fixa recorrente (repete todos os meses) ou pontual (apenas para o mês em curso).
+            2. **💰 Cálculo de Balanço e Lucro Real no Bolso**:
+               - O total de despesas mensais é automaticamente deduzido da faturação líquida dos turnos, dando o lucro real final.
+               - O ritmo diário de metas financeiras recalcula o esforço diário necessário tendo em conta estas despesas fixas.
+            3. **📊 Exportação para Folha de Cálculo Excel (CSV)**:
+               - Exporta um ficheiro `.csv` profissional com codificação UTF-8 BOM e separadores por ponto e vírgula `;`, perfeito para abrir diretamente no Microsoft Excel ou enviar para o contabilista e WhatsApp.
+               - Inclui cabeçalho de resumo mensal, discriminação de todas as despesas mensais e tabela detalhada de todos os turnos diários.
+            4. **📄 Relatório Mensal PDF com Despesas Detalhadas**:
+               - O PDF mensal inclui agora uma secção em destaque com a listagem de despesas mensais fixas e pontuais, e o lucro líquido real final após despesas.
+               - Paginação A4 dinâmica para que nenhum turno ou despesa fique cortado.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

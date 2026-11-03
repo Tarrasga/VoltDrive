@@ -9,6 +9,7 @@ class FinancialGoalsCard extends StatelessWidget {
   final FinancialGoals goals;
   final List<DailyShift> shifts;
   final bool isMonthView;
+  final double monthlyExpensesTotal;
   final VoidCallback? onGoalsChanged;
 
   const FinancialGoalsCard({
@@ -16,6 +17,7 @@ class FinancialGoalsCard extends StatelessWidget {
     required this.goals,
     required this.shifts,
     this.isMonthView = true,
+    this.monthlyExpensesTotal = 0.0,
     this.onGoalsChanged,
   });
 
@@ -31,7 +33,7 @@ class FinancialGoalsCard extends StatelessWidget {
     }
 
     final calculation = isMonthView
-        ? goals.calculateMonthlyPace(shifts)
+        ? goals.calculateMonthlyPace(shifts, monthlyExpensesTotal: monthlyExpensesTotal)
         : goals.calculateWeeklyPace(shifts);
 
     final bool reached = calculation.isTargetReached;

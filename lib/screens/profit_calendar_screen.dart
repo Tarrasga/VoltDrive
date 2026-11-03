@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/daily_shift.dart';
 import '../models/vehicle_profile.dart';
 import '../models/financial_goals.dart';
+import '../models/monthly_expense.dart';
 import '../services/assistant_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
@@ -24,6 +25,7 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
   List<DailyShift> _allShifts = [];
   VehicleProfile _profile = VehicleProfile();
   FinancialGoals _goals = FinancialGoals();
+  List<MonthlyExpense> _currentMonthExpenses = [];
   bool _isLoading = true;
 
   @override
@@ -36,12 +38,23 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
     final shifts = await StorageService.loadShifts();
     final prof = await StorageService.loadVehicleProfile();
     final goals = await StorageService.loadFinancialGoals();
+    final expenses = await StorageService.getExpensesForMonth(_selectedDate.year, _selectedDate.month);
     if (mounted) {
       setState(() {
         _allShifts = shifts;
         _profile = prof;
         _goals = goals;
+        _currentMonthExpenses = expenses;
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadExpensesForSelectedMonth() async {
+    final expenses = await StorageService.getExpensesForMonth(_selectedDate.year, _selectedDate.month);
+    if (mounted) {
+      setState(() {
+        _currentMonthExpenses = expenses;
       });
     }
   }
@@ -79,6 +92,7 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
         _selectedDate = _selectedDate.subtract(const Duration(days: 1));
       }
     });
+    _loadExpensesForSelectedMonth();
   }
 
   void _nextPeriod() {
@@ -91,12 +105,14 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
         _selectedDate = _selectedDate.add(const Duration(days: 1));
       }
     });
+    _loadExpensesForSelectedMonth();
   }
 
   void _goToToday() {
     setState(() {
       _selectedDate = DateTime.now();
     });
+    _loadExpensesForSelectedMonth();
   }
 
   Future<void> _exportMonthlyPdf() async {
@@ -123,12 +139,17 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
     final chargingKwh = monthShifts.fold<double>(0.0, (sum, s) => sum + s.chargingKwh);
     final tollsCost = monthShifts.fold<double>(0.0, (sum, s) => sum + s.tollsCost);
     final otherExpenses = monthShifts.fold<double>(0.0, (sum, s) => sum + s.otherExpenses);
-    final totalExpenses = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalExpenses);
-    final netProfit = monthShifts.fold<double>(0.0, (sum, s) => sum + s.netProfit);
+    final shiftsTotalExpenses = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalExpenses);
+    final shiftsNetProfit = monthShifts.fold<double>(0.0, (sum, s) => sum + s.netProfit);
+
+    final totalMonthlyExpenses = _currentMonthExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+    final combinedTotalExpenses = shiftsTotalExpenses + totalMonthlyExpenses;
+    final realNetProfit = shiftsNetProfit - totalMonthlyExpenses;
+
     final totalKm = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalKm);
     final totalHours = monthShifts.fold<double>(0.0, (sum, s) => sum + s.hoursWorked);
-    final profitPerKm = totalKm > 0 ? (netProfit / totalKm) : 0.0;
-    final profitPerHour = totalHours > 0 ? (netProfit / totalHours) : 0.0;
+    final profitPerKm = totalKm > 0 ? (realNetProfit / totalKm) : 0.0;
+    final profitPerHour = totalHours > 0 ? (realNetProfit / totalHours) : 0.0;
 
     const ptMonths = [
       'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -147,6 +168,7 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
         'hours': s.hoursWorked,
         'charging': s.chargingCost,
         'tolls': s.tollsCost,
+        'otherExpenses': s.otherExpenses,
         'net': s.netProfit,
       };
     }).toList();
@@ -171,14 +193,258 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
       chargingCost: chargingCost,
       chargingKwh: chargingKwh,
       tollsCost: tollsCost,
-      otherExpenses: otherExpenses,
-      totalExpenses: totalExpenses,
-      netProfit: netProfit,
+      otherExpenses: otherExpenses + totalMonthlyExpenses,
+      totalExpenses: combinedTotalExpenses,
+      netProfit: realNetProfit,
       totalKm: totalKm,
       totalHours: totalHours,
       profitPerKm: profitPerKm,
       profitPerHour: profitPerHour,
       shifts: shiftsData,
+      monthlyExpenses: _currentMonthExpenses.map((e) => {
+        'title': e.title,
+        'amount': e.amount,
+        'category': e.category,
+        'isRecurring': e.isRecurring,
+      }).toList(),
+    );
+  }
+
+  Future<void> _exportMonthlySpreadsheet() async {
+    final monthShifts = _getShiftsForCurrentMonth();
+    monthShifts.sort((a, b) => a.date.compareTo(b.date));
+
+    final totalGross = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalGross);
+    final uberGross = monthShifts.fold<double>(0.0, (sum, s) => sum + s.uberGross);
+    final boltGross = monthShifts.fold<double>(0.0, (sum, s) => sum + s.boltGross);
+    final tips = monthShifts.fold<double>(0.0, (sum, s) => sum + s.tips);
+    final platformFees = monthShifts.fold<double>(0.0, (sum, s) => sum + s.platformFeeAmount);
+    final chargingCost = monthShifts.fold<double>(0.0, (sum, s) => sum + s.chargingCost);
+    final tollsCost = monthShifts.fold<double>(0.0, (sum, s) => sum + s.tollsCost);
+    final otherDailyExpenses = monthShifts.fold<double>(0.0, (sum, s) => sum + s.otherExpenses);
+
+    final totalMonthlyExpenses = _currentMonthExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+    final totalExpenses = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalExpenses) + totalMonthlyExpenses;
+    final shiftsNetProfit = monthShifts.fold<double>(0.0, (sum, s) => sum + s.netProfit);
+    final realNetProfit = shiftsNetProfit - totalMonthlyExpenses;
+    final totalKm = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalKm);
+    final totalHours = monthShifts.fold<double>(0.0, (sum, s) => sum + s.hoursWorked);
+
+    const ptMonths = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    final monthName = '${ptMonths[_selectedDate.month - 1]} ${_selectedDate.year}';
+    final safeMonth = '${_selectedDate.year}_${_selectedDate.month.toString().padLeft(2, '0')}';
+
+    final sb = StringBuffer();
+    // UTF-8 BOM para garantir acentos perfeitos no Microsoft Excel
+    sb.write('\uFEFF');
+
+    sb.writeln('VOLTDRIVE TVDE - BALANÇO MENSAL DE FATURAÇÃO E DESPESAS');
+    sb.writeln('Mês / Período:;$monthName');
+    sb.writeln('Data de Emissão:;${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
+    sb.writeln('Veículo:;Renault Zoe Z.E. 50 TVDE');
+    sb.writeln('');
+
+    // RESUMO GLOBAL
+    sb.writeln('RESUMO FINANCEIRO GERAL');
+    sb.writeln('Indicador;Valor (€)');
+    sb.writeln('Faturação Bruta Total;${totalGross.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('• Faturação Uber;${uberGross.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('• Faturação Bolt;${boltGross.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('• Gorjetas Extras;${tips.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('Taxas Plataformas (-25%);-${platformFees.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('Carregamentos Elétricos Turnos;-${chargingCost.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('Portagens Turnos;-${tollsCost.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('Outros Custos Diários;-${otherDailyExpenses.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('Despesas Mensais (Baterias, Via Verde, Pneus);-${totalMonthlyExpenses.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('TOTAL DE DESPESAS OPERACIONAIS;-${totalExpenses.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('LUCRO LÍQUIDO REAL FINAL;${realNetProfit.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('Quilómetros Totais;${totalKm.toStringAsFixed(0)} km');
+    sb.writeln('Horas Totais de Condução;${totalHours.toStringAsFixed(1)} h');
+    sb.writeln('');
+
+    // DESPESAS MENSAIS DETALHADAS
+    sb.writeln('DESPESAS MENSAIS DETALHADAS (BATERIAS, VIA VERDE, PNEUS, MANUTENÇÃO)');
+    sb.writeln('Despesa / Descrição;Tipo;Valor (€)');
+    if (_currentMonthExpenses.isEmpty) {
+      sb.writeln('Sem despesas mensais registadas para este mês;;0,00 €');
+    } else {
+      for (final exp in _currentMonthExpenses) {
+        final typeStr = exp.isRecurring ? 'Fixo Recorrente' : 'Extra Mês';
+        sb.writeln('${exp.title};$typeStr;-${exp.amount.toStringAsFixed(2).replaceAll('.', ',')} €');
+      }
+    }
+    sb.writeln('SUBTOTAL DESPESAS MENSAIS;;-${totalMonthlyExpenses.toStringAsFixed(2).replaceAll('.', ',')} €');
+    sb.writeln('');
+
+    // DETALHE DIÁRIO DE TURNOS
+    sb.writeln('DETALHE DIÁRIO DE TURNOS');
+    sb.writeln('Data;Faturação Uber (€);Faturação Bolt (€);Faturado Total (€);Km;Horas;Carregamento (€);Portagens (€);Outros (€);Lucro Líquido (€)');
+    for (final s in monthShifts) {
+      final dateStr = DateFormat('dd/MM/yyyy').format(s.date);
+      sb.writeln(
+        '$dateStr;'
+        '${s.uberGross.toStringAsFixed(2).replaceAll('.', ',')};'
+        '${s.boltGross.toStringAsFixed(2).replaceAll('.', ',')};'
+        '${s.totalGross.toStringAsFixed(2).replaceAll('.', ',')};'
+        '${s.totalKm.toStringAsFixed(0)};'
+        '${s.hoursWorked.toStringAsFixed(1)};'
+        '${s.chargingCost.toStringAsFixed(2).replaceAll('.', ',')};'
+        '${s.tollsCost.toStringAsFixed(2).replaceAll('.', ',')};'
+        '${s.otherExpenses.toStringAsFixed(2).replaceAll('.', ',')};'
+        '${s.netProfit.toStringAsFixed(2).replaceAll('.', ',')}'
+      );
+    }
+    sb.writeln(
+      'TOTAIS;'
+      '${uberGross.toStringAsFixed(2).replaceAll('.', ',')};'
+      '${boltGross.toStringAsFixed(2).replaceAll('.', ',')};'
+      '${totalGross.toStringAsFixed(2).replaceAll('.', ',')};'
+      '${totalKm.toStringAsFixed(0)};'
+      '${totalHours.toStringAsFixed(1)};'
+      '${chargingCost.toStringAsFixed(2).replaceAll('.', ',')};'
+      '${tollsCost.toStringAsFixed(2).replaceAll('.', ',')};'
+      '${otherDailyExpenses.toStringAsFixed(2).replaceAll('.', ',')};'
+      '${shiftsNetProfit.toStringAsFixed(2).replaceAll('.', ',')}'
+    );
+
+    final csvContent = sb.toString();
+    await AssistantService.shareFile(
+      fileName: 'VoltDrive_Balanco_Mensal_$safeMonth.csv',
+      content: csvContent,
+      mimeType: 'text/csv',
+      title: 'Folha de Cálculo Mensal - $monthName',
+    );
+  }
+
+  void _openAddExpenseDialog() {
+    final titleCtrl = TextEditingController();
+    final amountCtrl = TextEditingController();
+    bool isRecurring = true;
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          backgroundColor: AppTheme.darkCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Row(
+            children: [
+              Icon(Icons.receipt_long, color: AppTheme.warningAmber, size: 22),
+              SizedBox(width: 8),
+              Text('Adicionar Despesa Mensal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Sugestões rápidas:',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    ActionChip(
+                      label: const Text('Baterias Zoe', style: TextStyle(fontSize: 11, color: Colors.white)),
+                      backgroundColor: AppTheme.darkSurface,
+                      onPressed: () => setDlgState(() {
+                        titleCtrl.text = 'Baterias (Aluguer Zoe)';
+                        isRecurring = true;
+                      }),
+                    ),
+                    ActionChip(
+                      label: const Text('Via Verde', style: TextStyle(fontSize: 11, color: Colors.white)),
+                      backgroundColor: AppTheme.darkSurface,
+                      onPressed: () => setDlgState(() {
+                        titleCtrl.text = 'Via Verde / Portagens';
+                        isRecurring = true;
+                      }),
+                    ),
+                    ActionChip(
+                      label: const Text('Pneus', style: TextStyle(fontSize: 11, color: Colors.white)),
+                      backgroundColor: AppTheme.darkSurface,
+                      onPressed: () => setDlgState(() {
+                        titleCtrl.text = 'Pneus Novos';
+                        isRecurring = false;
+                      }),
+                    ),
+                    ActionChip(
+                      label: const Text('Seguro TVDE', style: TextStyle(fontSize: 11, color: Colors.white)),
+                      backgroundColor: AppTheme.darkSurface,
+                      onPressed: () => setDlgState(() {
+                        titleCtrl.text = 'Seguro TVDE';
+                        isRecurring = true;
+                      }),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nome da Despesa',
+                    hintText: 'Ex: Pneus, Baterias Zoe, Via Verde',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amountCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Valor em Euros (€)',
+                    hintText: 'Ex: 80.00',
+                    suffixText: '€',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Repetir todos os meses', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Fixo (ex: Baterias Zoe) vs pontual (ex: Pneus)', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                  value: isRecurring,
+                  activeColor: AppTheme.accentGreen,
+                  onChanged: (val) => setDlgState(() => isRecurring = val),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dlgCtx),
+              child: const Text('Cancelar', style: TextStyle(color: AppTheme.textMuted)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final title = titleCtrl.text.trim();
+                final amt = double.tryParse(amountCtrl.text.replaceAll(',', '.')) ?? 0.0;
+                if (title.isNotEmpty && amt > 0) {
+                  final now = _selectedDate;
+                  final currentMonthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+                  final exp = MonthlyExpense(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    monthKey: isRecurring ? '' : currentMonthKey,
+                    title: title,
+                    amount: amt,
+                    isRecurring: isRecurring,
+                  );
+                  await StorageService.saveExpenseForMonth(exp);
+                  if (mounted) Navigator.pop(dlgCtx);
+                  await _loadExpensesForSelectedMonth();
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen),
+              child: const Text('Guardar', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -205,6 +471,11 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
             icon: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.primaryElectric),
             tooltip: 'Exportar Relatório Mensal PDF',
             onPressed: _exportMonthlyPdf,
+          ),
+          IconButton(
+            icon: const Icon(Icons.table_view_rounded, color: AppTheme.accentGreen),
+            tooltip: 'Exportar Folha Excel (CSV)',
+            onPressed: _exportMonthlySpreadsheet,
           ),
           IconButton(
             icon: const Icon(Icons.track_changes_rounded, color: AppTheme.accentGreen),
@@ -360,14 +631,19 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
 
   Widget _buildMonthView() {
     final monthShifts = _getShiftsForCurrentMonth();
-    final totalNet = monthShifts.fold<double>(0.0, (sum, s) => sum + s.netProfit);
+    final shiftsNetProfit = monthShifts.fold<double>(0.0, (sum, s) => sum + s.netProfit);
     final totalGross = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalGross);
     final totalKm = monthShifts.fold<double>(0.0, (sum, s) => sum + s.totalKm);
     final totalCharging = monthShifts.fold<double>(0.0, (sum, s) => sum + s.chargingCost);
     final totalHours = monthShifts.fold<double>(0.0, (sum, s) => sum + s.hoursWorked);
     final daysWorked = monthShifts.length;
-    final avgNetPerDay = daysWorked > 0 ? (totalNet / daysWorked) : 0.0;
-    final avgNetPerKm = totalKm > 0 ? (totalNet / totalKm) : 0.0;
+
+    // Despesas mensais adicionais (Baterias Zoe, Via Verde, Pneus, Manutenção)
+    final totalMonthlyExpenses = _currentMonthExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+    final realNetProfit = shiftsNetProfit - totalMonthlyExpenses;
+
+    final avgNetPerDay = daysWorked > 0 ? (realNetProfit / daysWorked) : 0.0;
+    final avgNetPerKm = totalKm > 0 ? (realNetProfit / totalKm) : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -377,6 +653,7 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
           goals: _goals,
           shifts: _allShifts,
           isMonthView: true,
+          monthlyExpensesTotal: totalMonthlyExpenses,
           onGoalsChanged: _loadData,
         ),
 
@@ -396,12 +673,24 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('LUCRO LÍQUIDO DO MÊS', style: TextStyle(color: AppTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
+                      const Text('LUCRO LÍQUIDO REAL DO MÊS', style: TextStyle(color: AppTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Text(
-                        '+${totalNet.toStringAsFixed(2)} €',
-                        style: const TextStyle(color: AppTheme.accentGreen, fontSize: 26, fontWeight: FontWeight.bold),
+                        '${realNetProfit >= 0 ? '+' : ''}${realNetProfit.toStringAsFixed(2)} €',
+                        style: TextStyle(
+                          color: realNetProfit >= 0 ? AppTheme.accentGreen : AppTheme.dangerRed,
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                      if (totalMonthlyExpenses > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            'Deduzidas despesas mensais de -${totalMonthlyExpenses.toStringAsFixed(2)} €',
+                            style: const TextStyle(color: AppTheme.warningAmber, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
                     ],
                   ),
                   Container(
@@ -423,36 +712,208 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                 children: [
                   _buildStatItem('Bruto Total', '${totalGross.toStringAsFixed(0)} €'),
                   _buildStatItem('Custo Zoe', '-${totalCharging.toStringAsFixed(0)} €', isCost: true),
+                  _buildStatItem('Desp. Mês', '-${totalMonthlyExpenses.toStringAsFixed(0)} €', isCost: true),
                   _buildStatItem('Km Totais', '${totalKm.toStringAsFixed(0)} km'),
                   _buildStatItem('Média / Dia', '${avgNetPerDay.toStringAsFixed(0)} €'),
-                  _buildStatItem('Média / Km', '${avgNetPerKm.toStringAsFixed(2)} €'),
                 ],
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _exportMonthlyPdf,
-                  icon: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.primaryElectric, size: 18),
-                  label: const Text('Exportar Registo Mensal em PDF', style: TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 13)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.primaryElectric),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _exportMonthlyPdf,
+                      icon: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.primaryElectric, size: 17),
+                      label: const Text('Exportar PDF', style: TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.primaryElectric),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _exportMonthlySpreadsheet,
+                      icon: const Icon(Icons.table_chart_rounded, color: Colors.white, size: 17),
+                      label: const Text('Folha Excel (CSV)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF107C41),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 14),
+        // CARTÃO DE DESPESAS MENSAIS (BATERIAS, VIA VERDE, PNEUS...)
+        _buildMonthlyExpensesCard(totalMonthlyExpenses),
+
+        const SizedBox(height: 2),
 
         // GRELHA DO CALENDÁRIO
         _buildCalendarGrid(),
 
         const SizedBox(height: 70), // Espaço para FAB
       ],
+    );
+  }
+
+  Widget _buildMonthlyExpensesCard(double totalMonthlyExpenses) {
+    const ptMonths = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    final monthName = '${ptMonths[_selectedDate.month - 1]} ${_selectedDate.year}';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.darkCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.receipt_long_rounded, color: AppTheme.warningAmber, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Despesas Mensais ($monthName)',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.warningAmber.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '-${totalMonthlyExpenses.toStringAsFixed(2)} €',
+                  style: const TextStyle(color: AppTheme.warningAmber, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Baterias Zoe, Via Verde, Pneus e manutenção fixadas para este mês:',
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+          ),
+          const SizedBox(height: 12),
+
+          if (_currentMonthExpenses.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.darkSurface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Text(
+                  'Ainda não adicionaste despesas para este mês. Adiciona Baterias, Via Verde ou Pneus.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                ),
+              ),
+            )
+          else
+            ..._currentMonthExpenses.map((exp) {
+              IconData icon = Icons.receipt_outlined;
+              if (exp.title.toLowerCase().contains('bateria')) icon = Icons.battery_charging_full;
+              if (exp.title.toLowerCase().contains('verde') || exp.title.toLowerCase().contains('portag')) icon = Icons.toll;
+              if (exp.title.toLowerCase().contains('pneu')) icon = Icons.tire_repair;
+              if (exp.title.toLowerCase().contains('segur')) icon = Icons.security;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkSurface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.darkBorder.withOpacity(0.6)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(icon, size: 18, color: AppTheme.warningAmber),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(exp.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text(
+                            exp.isRecurring ? 'Fixo mensal' : 'Apenas este mês',
+                            style: const TextStyle(color: AppTheme.textMuted, fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '-${exp.amount.toStringAsFixed(2)} €',
+                      style: const TextStyle(color: AppTheme.warningAmber, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: AppTheme.dangerRed, size: 16),
+                      onPressed: () async {
+                        await StorageService.deleteMonthlyExpense(exp.id);
+                        await _loadExpensesForSelectedMonth();
+                      },
+                      tooltip: 'Remover',
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _openAddExpenseDialog,
+                  icon: const Icon(Icons.add, size: 16, color: Colors.black),
+                  label: const Text('Adicionar Despesa', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.warningAmber,
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    FinancialGoalsScreen.showAsModal(context, shifts: _allShifts, onSaved: _loadData);
+                  },
+                  icon: const Icon(Icons.tune, size: 16, color: AppTheme.primaryElectric),
+                  label: const Text('Gerir Metas & Custos', style: TextStyle(color: AppTheme.primaryElectric, fontWeight: FontWeight.bold, fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.primaryElectric),
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

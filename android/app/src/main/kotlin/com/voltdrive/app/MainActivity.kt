@@ -171,17 +171,46 @@ class MainActivity: FlutterFragmentActivity() {
                         val profitPerKm = call.argument<Double>("profitPerKm") ?: 0.0
                         val profitPerHour = call.argument<Double>("profitPerHour") ?: 0.0
                         val shifts = call.argument<List<Map<String, Any>>>("shifts") ?: emptyList()
+                        val monthlyExpenses = call.argument<List<Map<String, Any>>>("monthlyExpenses") ?: emptyList()
 
                         generateAndOpenMonthlyPdf(
                             monthName, month, year, totalGross, uberGross, boltGross, tips,
                             platformFees, chargingCost, chargingKwh, tollsCost, otherExpenses,
                             totalExpenses, netProfit, totalKm, totalHours, profitPerKm, profitPerHour,
-                            shifts
+                            shifts, monthlyExpenses
                         )
                         result.success(true)
                     } catch (e: Exception) {
                         android.util.Log.e("VoltDrive", "Error generating PDF: ${e.message}", e)
                         result.error("PDF_ERROR", e.message, null)
+                    }
+                }
+                "shareFile" -> {
+                    try {
+                        val fileName = call.argument<String>("fileName") ?: "relatorio.csv"
+                        val content = call.argument<String>("content") ?: ""
+                        val mimeType = call.argument<String>("mimeType") ?: "text/csv"
+                        val title = call.argument<String>("title") ?: "Partilhar Relatório"
+                        val file = File(cacheDir, fileName)
+                        file.writeText(content, Charsets.UTF_8)
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            this@MainActivity,
+                            "$packageName.fileprovider",
+                            file
+                        )
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = mimeType
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            putExtra(Intent.EXTRA_SUBJECT, title)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        val chooser = Intent.createChooser(sendIntent, title)
+                        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(chooser)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        android.util.Log.e("VoltDrive", "Error sharing file: ${e.message}", e)
+                        result.error("SHARE_ERROR", e.message, null)
                     }
                 }
                 "shareBackupFile" -> {
@@ -501,10 +530,10 @@ class MainActivity: FlutterFragmentActivity() {
                             @Suppress("DEPRECATION")
                             packageManager.getPackageInfo(packageName, 0)
                         }
-                        val vName = pInfo.versionName ?: "1.0.45"
+                        val vName = pInfo.versionName ?: "1.0.46"
                         result.success(vName)
                     } catch (e: Exception) {
-                        result.success("1.0.45")
+                        result.success("1.0.46")
                     }
                 }
                 else -> result.notImplemented()
@@ -655,12 +684,14 @@ class MainActivity: FlutterFragmentActivity() {
         totalHours: Double,
         profitPerKm: Double,
         profitPerHour: Double,
-        shifts: List<Map<String, Any>>
+        shifts: List<Map<String, Any>>,
+        monthlyExpenses: List<Map<String, Any>> = emptyList()
     ) {
         val pdfDocument = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
-        val page = pdfDocument.startPage(pageInfo)
-        val canvas = page.canvas
+        var pageNum = 1
+        var pageInfo = PdfDocument.PageInfo.Builder(595, 842, pageNum).create()
+        var page = pdfDocument.startPage(pageInfo)
+        var canvas = page.canvas
 
         val paint = Paint().apply { isAntiAlias = true }
 
@@ -685,7 +716,7 @@ class MainActivity: FlutterFragmentActivity() {
         paint.color = Color.parseColor("#94A3B8")
         paint.textSize = 9f
         paint.typeface = Typeface.DEFAULT
-        canvas.drawText("Renault Zoe Z.E. 50 Edition • Gestão de Faturação e Rentabilidade Elétrica", 30f, 56f, paint)
+        canvas.drawText("Renault Zoe Edition • Gestão de Faturação, Custos e Rentabilidade", 30f, 56f, paint)
 
         // Etiqueta do Mês
         paint.color = Color.parseColor("#00D2FF")
@@ -747,14 +778,56 @@ class MainActivity: FlutterFragmentActivity() {
         canvas.drawText(col2, 40f, metricsY + 27f, paint)
         canvas.drawText(col3, 40f, metricsY + 40f, paint)
 
+        var curTableStartY = 216f
+
+        // SE HOUVER DESPESAS MENSAIS (Baterias Zoe, Via Verde, Pneus, etc.)
+        if (monthlyExpenses.isNotEmpty()) {
+            val expBoxH = 18f + (monthlyExpenses.size * 13f)
+            paint.color = Color.parseColor("#FFFBEB") // Fundo âmbar suave
+            paint.style = Paint.Style.FILL
+            canvas.drawRoundRect(RectF(30f, curTableStartY, 565f, curTableStartY + expBoxH), 6f, 6f, paint)
+
+            paint.color = Color.parseColor("#FDE68A")
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 1f
+            canvas.drawRoundRect(RectF(30f, curTableStartY, 565f, curTableStartY + expBoxH), 6f, 6f, paint)
+
+            paint.style = Paint.Style.FILL
+            paint.color = Color.parseColor("#92400E")
+            paint.textSize = 8.5f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText("DESPESAS MENSAIS REGISTADAS (BATERIAS, VIA VERDE, PNEUS, MANUTENÇÃO):", 38f, curTableStartY + 12f, paint)
+
+            var expY = curTableStartY + 24f
+            for (exp in monthlyExpenses) {
+                val title = exp["title"] as? String ?: "Despesa"
+                val amt = (exp["amount"] as? Number)?.toDouble() ?: 0.0
+
+                paint.color = Color.parseColor("#451A03")
+                paint.textSize = 7.5f
+                paint.typeface = Typeface.DEFAULT
+                canvas.drawText("• $title", 42f, expY, paint)
+
+                paint.color = Color.parseColor("#B45309")
+                paint.typeface = Typeface.DEFAULT_BOLD
+                paint.textAlign = Paint.Align.RIGHT
+                canvas.drawText(String.format(Locale.ROOT, "-%.2f €", amt), 555f, expY, paint)
+                paint.textAlign = Paint.Align.LEFT
+
+                expY += 13f
+            }
+
+            curTableStartY += expBoxH + 10f
+        }
+
         // Tabela Diária
-        val tableY = 220f
+        val tableY = curTableStartY
         paint.color = Color.parseColor("#0F172A")
-        paint.textSize = 11f
+        paint.textSize = 10.5f
         paint.typeface = Typeface.DEFAULT_BOLD
         canvas.drawText("DETALHE DIÁRIO DE TURNOS", 30f, tableY, paint)
 
-        val headerY = tableY + 8f
+        val headerY = tableY + 6f
         paint.color = Color.parseColor("#1E293B")
         paint.style = Paint.Style.FILL
         canvas.drawRect(30f, headerY, 565f, headerY + 18f, paint)
@@ -772,11 +845,45 @@ class MainActivity: FlutterFragmentActivity() {
         canvas.drawText("LUCRO LÍQ.", 500f, headerY + 12f, paint)
 
         var curRowY = headerY + 18f
-        val rowH = 15f
+        val rowH = 14f
         var rowIdx = 0
 
         for (s in shifts) {
-            if (curRowY > 780f) break // Limite seguro da página A4
+            // Se ultrapassar a folha, inicia uma página seguinte limpa
+            if (curRowY > 790f) {
+                pdfDocument.finishPage(page)
+                pageNum++
+                pageInfo = PdfDocument.PageInfo.Builder(595, 842, pageNum).create()
+                page = pdfDocument.startPage(pageInfo)
+                canvas = page.canvas
+
+                // Banner da continuação
+                paint.color = Color.parseColor("#0F172A")
+                paint.style = Paint.Style.FILL
+                canvas.drawRect(0f, 0f, 595f, 40f, paint)
+
+                paint.color = Color.WHITE
+                paint.textSize = 12f
+                paint.typeface = Typeface.DEFAULT_BOLD
+                canvas.drawText("VOLTDRIVE TVDE - $monthName (Continuação)", 30f, 25f, paint)
+
+                curRowY = 55f
+                paint.color = Color.parseColor("#1E293B")
+                canvas.drawRect(30f, curRowY, 565f, curRowY + 16f, paint)
+
+                paint.color = Color.WHITE
+                paint.textSize = 8f
+                paint.typeface = Typeface.DEFAULT_BOLD
+                canvas.drawText("DATA", 35f, curRowY + 11f, paint)
+                canvas.drawText("FATURADO", 95f, curRowY + 11f, paint)
+                canvas.drawText("KM", 180f, curRowY + 11f, paint)
+                canvas.drawText("HORAS", 235f, curRowY + 11f, paint)
+                canvas.drawText("CARREG.", 295f, curRowY + 11f, paint)
+                canvas.drawText("PORTAG.", 365f, curRowY + 11f, paint)
+                canvas.drawText("OUTROS", 435f, curRowY + 11f, paint)
+                canvas.drawText("LUCRO LÍQ.", 500f, curRowY + 11f, paint)
+                curRowY += 16f
+            }
 
             paint.color = if (rowIdx % 2 == 0) Color.WHITE else Color.parseColor("#F8FAFC")
             paint.style = Paint.Style.FILL
@@ -795,17 +902,17 @@ class MainActivity: FlutterFragmentActivity() {
             val o = (s["otherExpenses"] as? Number)?.toDouble() ?: 0.0
             val n = (s["net"] as? Number)?.toDouble() ?: 0.0
 
-            canvas.drawText(dateStr, 35f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", g), 95f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.0f km", km), 180f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.1f h", h), 235f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", c), 295f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", t), 365f, curRowY + 10.5f, paint)
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", o), 435f, curRowY + 10.5f, paint)
+            canvas.drawText(dateStr, 35f, curRowY + 10f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", g), 95f, curRowY + 10f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.0f km", km), 180f, curRowY + 10f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.1f h", h), 235f, curRowY + 10f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", c), 295f, curRowY + 10f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", t), 365f, curRowY + 10f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", o), 435f, curRowY + 10f, paint)
 
             paint.color = if (n >= 0) Color.parseColor("#16A34A") else Color.parseColor("#DC2626")
             paint.typeface = Typeface.DEFAULT_BOLD
-            canvas.drawText(String.format(Locale.ROOT, "%.2f €", n), 500f, curRowY + 10.5f, paint)
+            canvas.drawText(String.format(Locale.ROOT, "%.2f €", n), 500f, curRowY + 10f, paint)
 
             curRowY += rowH
             rowIdx++
@@ -823,6 +930,21 @@ class MainActivity: FlutterFragmentActivity() {
         canvas.drawText(String.format(Locale.ROOT, "%.2f €", totalGross), 95f, curRowY + 12f, paint)
         canvas.drawText(String.format(Locale.ROOT, "%.0f km", totalKm), 180f, curRowY + 12f, paint)
         canvas.drawText(String.format(Locale.ROOT, "%.1f h", totalHours), 235f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", chargingCost), 295f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", tollsCost), 365f, curRowY + 12f, paint)
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", otherExpenses), 435f, curRowY + 12f, paint)
+
+        paint.color = Color.parseColor("#16A34A")
+        canvas.drawText(String.format(Locale.ROOT, "%.2f €", netProfit), 500f, curRowY + 12f, paint)
+
+        // Rodapé da Página
+        paint.color = Color.parseColor("#94A3B8")
+        paint.textSize = 8f
+        paint.typeface = Typeface.DEFAULT
+        val nowStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ROOT).format(Date())
+        canvas.drawText("VoltDrive • Documento de gestão TVDE para motorista e contabilidade • Gerado em $nowStr", 30f, 815f, paint)
+
+        pdfDocument.finishPage(page)
         canvas.drawText(String.format(Locale.ROOT, "%.2f €", chargingCost), 295f, curRowY + 12f, paint)
         canvas.drawText(String.format(Locale.ROOT, "%.2f €", tollsCost), 365f, curRowY + 12f, paint)
         canvas.drawText(String.format(Locale.ROOT, "%.2f €", otherExpenses), 435f, curRowY + 12f, paint)

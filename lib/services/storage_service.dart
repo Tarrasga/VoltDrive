@@ -4,6 +4,7 @@ import '../models/vehicle_profile.dart';
 import '../models/daily_shift.dart';
 import '../models/driving_session.dart';
 import '../models/financial_goals.dart';
+import '../models/monthly_expense.dart';
 import 'cloud_sync_service.dart';
 import 'update_service.dart';
 
@@ -13,6 +14,93 @@ class StorageService {
   static const String _keyFinancialGoals = 'voltdrive_financial_goals';
   static const String _keyCurrentDrivingSession = 'voltdrive_current_driving_session';
   static const String _keyDrivingHistory = 'voltdrive_driving_history';
+  static const String _keyMonthlyExpenses = 'voltdrive_monthly_expenses';
+
+  // ==========================================
+  // DESPESAS MENSAIS (BATERIAS, VIA VERDE, PNEUS)
+  // ==========================================
+
+  /// Carrega todas as despesas mensais gravadas
+  static Future<List<MonthlyExpense>> loadMonthlyExpenses() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final listJson = prefs.getStringList(_keyMonthlyExpenses);
+      if (listJson != null && listJson.isNotEmpty) {
+        return listJson.map((item) => MonthlyExpense.fromJson(jsonDecode(item))).toList();
+      }
+    } catch (_) {}
+
+    // Padrões iniciais para motoristas TVDE (Zoe Edition)
+    return [
+      MonthlyExpense(
+        id: 'default_battery',
+        monthKey: '',
+        title: 'Baterias (Aluguer Zoe)',
+        amount: 0.0,
+        isRecurring: true,
+        category: 'battery',
+      ),
+      MonthlyExpense(
+        id: 'default_via_verde',
+        monthKey: '',
+        title: 'Via Verde / Portagens',
+        amount: 0.0,
+        isRecurring: true,
+        category: 'tolls',
+      ),
+    ];
+  }
+
+  /// Guarda a lista global de despesas mensais
+  static Future<void> saveMonthlyExpenses(List<MonthlyExpense> expenses) async {
+    final prefs = await SharedPreferences.getInstance();
+    final listJson = expenses.map((e) => jsonEncode(e.toJson())).toList();
+    await prefs.setStringList(_keyMonthlyExpenses, listJson);
+    if (CloudSyncService.isLoggedIn) {
+      CloudSyncService.syncAllToCloud();
+    }
+  }
+
+  /// Devolve as despesas aplicáveis para um determinado mês (ex: 2026, 11)
+  static Future<List<MonthlyExpense>> getExpensesForMonth(int year, int month) async {
+    final all = await loadMonthlyExpenses();
+    final targetMonthKey = '$year-${month.toString().padLeft(2, '0')}';
+
+    final Map<String, MonthlyExpense> effectiveExpenses = {};
+
+    // 1. Aplicar despesas recorrentes base
+    for (final exp in all.where((e) => e.isRecurring && e.monthKey.isEmpty)) {
+      effectiveExpenses[exp.title.toLowerCase().trim()] = exp;
+    }
+
+    // 2. Aplicar despesas específicas deste mês (podem sobrescrever ou ser novas)
+    for (final exp in all.where((e) => e.monthKey == targetMonthKey)) {
+      effectiveExpenses[exp.title.toLowerCase().trim()] = exp;
+    }
+
+    final list = effectiveExpenses.values.toList();
+    list.sort((a, b) => a.title.compareTo(b.title));
+    return list;
+  }
+
+  /// Adiciona ou atualiza uma despesa para um mês específico
+  static Future<void> saveExpenseForMonth(MonthlyExpense expense) async {
+    final all = await loadMonthlyExpenses();
+    final index = all.indexWhere((e) => e.id == expense.id);
+    if (index >= 0) {
+      all[index] = expense;
+    } else {
+      all.add(expense);
+    }
+    await saveMonthlyExpenses(all);
+  }
+
+  /// Remove uma despesa mensal
+  static Future<void> deleteMonthlyExpense(String id) async {
+    final all = await loadMonthlyExpenses();
+    all.removeWhere((e) => e.id == id);
+    await saveMonthlyExpenses(all);
+  }
 
   // Carregar metas financeiras
   static Future<FinancialGoals> loadFinancialGoals() async {
@@ -207,6 +295,7 @@ class StorageService {
     final profile = await loadVehicleProfile();
     final shifts = await loadShifts();
     final goals = await loadFinancialGoals();
+    final monthlyExpenses = await loadMonthlyExpenses();
     final drivingHistory = await loadDrivingHistory();
     final userEmail = prefs.getString('voltdrive_auth_user_email') ?? '';
 
@@ -218,6 +307,7 @@ class StorageService {
       'vehicleProfile': profile.toJson(),
       'shifts': shifts.map((s) => s.toJson()).toList(),
       'financialGoals': goals.toJson(),
+      'monthlyExpenses': monthlyExpenses.map((m) => m.toJson()).toList(),
       'drivingHistory': drivingHistory.map((d) => d.toJson()).toList(),
     };
 
@@ -243,6 +333,14 @@ class StorageService {
     if (data['financialGoals'] != null) {
       final goals = FinancialGoals.fromJson(Map<String, dynamic>.from(data['financialGoals']));
       await saveFinancialGoals(goals);
+    }
+
+    // 2.1 Restaurar Despesas Mensais
+    if (data['monthlyExpenses'] != null) {
+      final list = (data['monthlyExpenses'] as List)
+          .map((item) => MonthlyExpense.fromJson(item as Map<String, dynamic>))
+          .toList();
+      await saveMonthlyExpenses(list);
     }
 
     // 3. Restaurar Histórico de Condução / Horas

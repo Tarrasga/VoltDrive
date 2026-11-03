@@ -41,15 +41,17 @@ class FinancialGoals {
   );
 
   /// Calcula o ritmo necessário para a Meta Mensal
-  FinancialPaceCalculation calculateMonthlyPace(List<DailyShift> allShifts, {DateTime? refDate}) {
+  FinancialPaceCalculation calculateMonthlyPace(List<DailyShift> allShifts, {DateTime? refDate, double monthlyExpensesTotal = 0.0}) {
     final now = refDate ?? DateTime.now();
     final shiftsInMonth = allShifts.where((s) => s.date.year == now.year && s.date.month == now.month).toList();
 
     final isProfit = targetType == 'profit';
-    final double achieved = shiftsInMonth.fold(
+    final double shiftsTotal = shiftsInMonth.fold(
       0.0,
       (sum, s) => sum + (isProfit ? s.netProfit : s.totalGross),
     );
+    // Se for Lucro Líquido Real, desconta as despesas mensais (baterias, via verde, pneus, etc.)
+    final double achieved = isProfit ? (shiftsTotal - monthlyExpensesTotal) : shiftsTotal;
 
     final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
     // Dias restantes no mês (incluindo o dia de hoje)
