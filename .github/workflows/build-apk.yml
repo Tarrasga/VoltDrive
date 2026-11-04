@@ -102,7 +102,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Semana Atual na Vista Mensal, Despesas Baterias/Pneus e Folha Excel)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Histórico de Horas Dias Anteriores & Preenchimento Automático Km/Horas nos Lucros)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
@@ -110,23 +110,18 @@ jobs:
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
             ### 🚀 Novidades e Melhorias:
-            1. **⚡ Semana Atual na Vista Mensal (Calendário de Lucros)**:
-               - No ecrã de lucros mensal, surge agora a **Semana Atual** em destaque (com intervalo de datas ex: 2 a 8 Nov e número da semana).
-               - Seletor rápido de abas no cartão de resumo: `[ Mês (Novembro) ]` e `[ Semana Atual ]` para alternar entre lucro e metas do mês vs da semana sem sair da grelha de calendário.
-               - Mini-card interativo da Semana Atual sempre visível no modo mensal com lucro líquido, dias trabalhados, bruto e km.
-               - Destaque visual dos dias pertencentes à semana atual diretamente na grelha do calendário.
-            2. **🔋 Despesas Mensais Editáveis (Baterias Zoe, Via Verde, Pneus, Seguro)**:
-               - Novo módulo no ecrã de Metas e no Calendário de Lucros para registar despesas fixas ou pontuais.
-               - Suporte para campos totalmente editáveis: podes adicionar "Pneus Novos" com o respetivo valor, aluguer de baterias Renault Zoe, portagens Via Verde, seguro TVDE, etc.
-               - Opção de despesa fixa recorrente (repete todos os meses) ou pontual (apenas para o mês em curso).
-            3. **💰 Cálculo de Balanço e Lucro Real no Bolso**:
-               - O total de despesas mensais é automaticamente deduzido da faturação líquida dos turnos, dando o lucro real final.
-               - O ritmo diário de metas financeiras recalcula o esforço diário necessário tendo em conta estas despesas fixas.
-            4. **📊 Exportação para Folha de Cálculo Excel (CSV)**:
-               - Exporta um ficheiro `.csv` profissional com codificação UTF-8 BOM e separadores por ponto e vírgula `;`, perfeito para abrir diretamente no Microsoft Excel ou enviar para o contabilista e WhatsApp.
-               - Inclui cabeçalho de resumo mensal, discriminação de todas as despesas mensais e tabela detalhada de todos os turnos diários.
-            5. **📄 Relatório Mensal PDF com Despesas Detalhadas e Correção de Compilação**:
-               - O PDF mensal inclui agora uma secção em destaque com a listagem de despesas mensais fixas e pontuais, e o lucro líquido real final após despesas.
-               - Corrigida compilação nativa Android no gerador de PDF.
+            1. **📜 Histórico Completo de Horas TVDE de Dias Anteriores**:
+               - Nova aba no ecrã de Horas TVDE: `[ ⏱️ Turno em Curso ]` | `[ 📜 Dias Anteriores ]` para rever os turnos passados.
+               - Detalhe de cada dia com horas de condução, pausas cumpridas, odómetro inicial/final e total de km percorridos.
+               - Verificação de conformidade com a Lei TVDE (Lei n.º 45/2018: limite de 10h diárias e pausas obrigatórias).
+               - Consulta de auditoria de eventos e opção de exportar o registo do dia para fiscalização policial (PSP/GNR/IMT).
+               - Possibilidade de adicionar ou editar turnos de dias anteriores manualmente.
+               - Arquivamento automático de segurança caso a app mude de dia sem encerramento manual.
+            2. **⚡ Preenchimento Automático de Km e Horas nos Lucros do Dia**:
+               - Ao abrir o registo de lucro do turno no Calendário ou Fecho do Dia, os **Km Percorridos** (e odómetro inicial/final) e o **Tempo de Trabalho** registados nas Horas TVDE são preenchidos automaticamente!
+               - Identificação visual imediata com botão para reaplicar ou ajustar conforme necessário.
+            3. **🔋 Despesas Mensais Editáveis & Folha Excel (CSV)**:
+               - Gestão de custos fixos (baterias Zoe, portagens Via Verde, pneus, seguro) deduzidos do lucro real no bolso.
+               - Exportação profissional em Folha de Cálculo Excel (CSV) e Relatório PDF.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

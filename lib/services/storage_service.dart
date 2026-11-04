@@ -239,10 +239,14 @@ class StorageService {
       if (jsonString != null && jsonString.isNotEmpty) {
         final Map<String, dynamic> map = jsonDecode(jsonString);
         final session = DrivingShiftSession.fromJson(map);
-        // Se a sessão for de um dia anterior, cria uma nova
         final now = DateTime.now();
         if (session.date.year == now.year && session.date.month == now.month && session.date.day == now.day) {
           return session;
+        } else {
+          // Se a sessão for de um dia anterior e teve atividade, arquiva automaticamente no histórico
+          if (session.totalDrivingSeconds > 0 || (session.startKm != null && session.startKm! > 0) || session.logs.isNotEmpty) {
+            await archiveDrivingSession(session);
+          }
         }
       }
     } catch (e) {
@@ -261,12 +265,33 @@ class StorageService {
     await prefs.setString(_keyCurrentDrivingSession, jsonString);
   }
 
-  // Arquivar sessão de condução no histórico diário
+  // Arquivar sessão de condução no histórico diário (evita duplicados e ordena por data decrescente)
   static Future<void> archiveDrivingSession(DrivingShiftSession session) async {
     final prefs = await SharedPreferences.getInstance();
     final listJson = prefs.getStringList(_keyDrivingHistory) ?? [];
-    listJson.insert(0, jsonEncode(session.toJson()));
-    await prefs.setStringList(_keyDrivingHistory, listJson);
+    final list = listJson
+        .map((item) => DrivingShiftSession.fromJson(jsonDecode(item)))
+        .toList();
+
+    final existingIdx = list.indexWhere((s) =>
+        s.id == session.id ||
+        (s.date.year == session.date.year &&
+            s.date.month == session.date.month &&
+            s.date.day == session.date.day));
+
+    if (existingIdx >= 0) {
+      list[existingIdx] = session;
+    } else {
+      list.insert(0, session);
+    }
+
+    list.sort((a, b) => b.date.compareTo(a.date));
+
+    final updatedJson = list.map((s) => jsonEncode(s.toJson())).toList();
+    await prefs.setStringList(_keyDrivingHistory, updatedJson);
+    if (CloudSyncService.isLoggedIn) {
+      CloudSyncService.syncAllToCloud();
+    }
   }
 
   // Carregar histórico de sessões de condução
@@ -275,14 +300,50 @@ class StorageService {
       final prefs = await SharedPreferences.getInstance();
       final listJson = prefs.getStringList(_keyDrivingHistory);
       if (listJson != null) {
-        return listJson
+        final list = listJson
             .map((item) => DrivingShiftSession.fromJson(jsonDecode(item)))
             .toList();
+        list.sort((a, b) => b.date.compareTo(a.date));
+        return list;
       }
     } catch (e) {
       // Erro ao carregar
     }
     return [];
+  }
+
+  // Eliminar uma sessão arquivada do histórico
+  static Future<void> deleteDrivingSession(String sessionId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final history = await loadDrivingHistory();
+    history.removeWhere((s) => s.id == sessionId);
+    final updatedJson = history.map((s) => jsonEncode(s.toJson())).toList();
+    await prefs.setStringList(_keyDrivingHistory, updatedJson);
+    if (CloudSyncService.isLoggedIn) {
+      CloudSyncService.syncAllToCloud();
+    }
+  }
+
+  // Obter sessão de condução correspondente a uma data específica (atual ou histórico)
+  static Future<DrivingShiftSession?> getDrivingSessionForDate(DateTime date) async {
+    try {
+      // 1. Verificar se é hoje e tem registo ativo
+      final current = await loadCurrentDrivingSession();
+      if (current.date.year == date.year && current.date.month == date.month && current.date.day == date.day) {
+        if (current.totalDrivingSeconds > 0 || (current.startKm != null && current.startKm! > 0) || current.totalKmDriven > 0) {
+          return current;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Procurar no histórico arquivado
+    final history = await loadDrivingHistory();
+    for (final s in history) {
+      if (s.date.year == date.year && s.date.month == date.month && s.date.day == date.day) {
+        return s;
+      }
+    }
+    return null;
   }
 
   // ==========================================

@@ -51,6 +51,21 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
 
   Future<void> _loadProfile() async {
     final prof = await StorageService.loadVehicleProfile();
+    final todaySession = await StorageService.getDrivingSessionForDate(DateTime.now());
+    if (todaySession != null) {
+      if (_startKmController.text.isEmpty && (todaySession.startKm ?? 0) > 0) {
+        _startKmController.text = todaySession.startKm!.toStringAsFixed(0);
+      }
+      if (_endKmController.text.isEmpty && (todaySession.endKm ?? 0) > 0) {
+        _endKmController.text = todaySession.endKm!.toStringAsFixed(0);
+      }
+      if (_kmController.text.isEmpty && todaySession.totalKmDriven > 0) {
+        _kmController.text = todaySession.totalKmDriven.toStringAsFixed(1);
+      }
+      if (_hoursController.text.isEmpty && todaySession.totalDrivingSeconds > 0) {
+        _hoursController.text = (todaySession.totalDrivingSeconds / 3600.0).toStringAsFixed(1);
+      }
+    }
     setState(() {
       _profile = prof;
       _isLoading = false;

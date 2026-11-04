@@ -40,6 +40,7 @@ class DrivingShiftSession {
   DateTime? shiftEndTime;
   double? startKm; // Odómetro inicial
   double? endKm;   // Odómetro final
+  double? manualKm; // Km manuais se não usar odómetro completo
   int totalDrivingSeconds;
   int currentContinuousDrivingSeconds;
   int totalBreakSeconds;
@@ -53,6 +54,7 @@ class DrivingShiftSession {
     this.shiftEndTime,
     this.startKm,
     this.endKm,
+    this.manualKm,
     this.totalDrivingSeconds = 0,
     this.currentContinuousDrivingSeconds = 0,
     this.totalBreakSeconds = 0,
@@ -61,7 +63,15 @@ class DrivingShiftSession {
   }) : logs = logs ?? [];
 
   // Km totais rodados no turno
-  double get totalKmDriven => (endKm != null && startKm != null && endKm! > startKm!) ? (endKm! - startKm!) : 0.0;
+  double get totalKmDriven {
+    if (endKm != null && startKm != null && endKm! > startKm!) {
+      return endKm! - startKm!;
+    }
+    if (manualKm != null && manualKm! > 0) {
+      return manualKm!;
+    }
+    return 0.0;
+  }
 
   // Tempo de condução restante hoje (até ao limite de 10h da Lei TVDE)
   int get remainingDailyDrivingSeconds => (maxDailyDrivingSeconds - totalDrivingSeconds).clamp(0, maxDailyDrivingSeconds);
@@ -100,6 +110,7 @@ class DrivingShiftSession {
     'shiftEndTime': shiftEndTime?.toIso8601String(),
     'startKm': startKm,
     'endKm': endKm,
+    'manualKm': manualKm,
     'totalDrivingSeconds': totalDrivingSeconds,
     'currentContinuousDrivingSeconds': currentContinuousDrivingSeconds,
     'totalBreakSeconds': totalBreakSeconds,
@@ -114,6 +125,7 @@ class DrivingShiftSession {
     shiftEndTime: json['shiftEndTime'] != null ? DateTime.tryParse(json['shiftEndTime'] as String) : null,
     startKm: (json['startKm'] as num?)?.toDouble(),
     endKm: (json['endKm'] as num?)?.toDouble(),
+    manualKm: (json['manualKm'] as num?)?.toDouble(),
     totalDrivingSeconds: json['totalDrivingSeconds'] as int? ?? 0,
     currentContinuousDrivingSeconds: json['currentContinuousDrivingSeconds'] as int? ?? 0,
     totalBreakSeconds: json['totalBreakSeconds'] as int? ?? 0,

@@ -1901,7 +1901,35 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
   // FORMULÁRIO DE REGISTO / EDIÇÃO DE TURNO
   // ==========================================
 
-  void _openShiftFormDialog({required DateTime date, DailyShift? existingShift}) {
+  Future<void> _openShiftFormDialog({required DateTime date, DailyShift? existingShift}) async {
+    // Procurar sessão de condução TVDE do Tacógrafo para esta data
+    final drivingSession = await StorageService.getDrivingSessionForDate(date);
+
+    double initialStartKm = existingShift?.startKm ?? 0.0;
+    double initialEndKm = existingShift?.endKm ?? 0.0;
+    double initialKm = existingShift?.totalKm ?? 0.0;
+    double initialHours = existingShift?.hoursWorked ?? 0.0;
+    bool importedFromTacografo = false;
+
+    if (drivingSession != null) {
+      if (initialStartKm == 0 && (drivingSession.startKm ?? 0) > 0) {
+        initialStartKm = drivingSession.startKm!;
+        importedFromTacografo = true;
+      }
+      if (initialEndKm == 0 && (drivingSession.endKm ?? 0) > 0) {
+        initialEndKm = drivingSession.endKm!;
+        importedFromTacografo = true;
+      }
+      if (initialKm == 0 && drivingSession.totalKmDriven > 0) {
+        initialKm = drivingSession.totalKmDriven;
+        importedFromTacografo = true;
+      }
+      if (initialHours == 0 && drivingSession.totalDrivingSeconds > 0) {
+        initialHours = double.parse((drivingSession.totalDrivingSeconds / 3600.0).toStringAsFixed(1));
+        importedFromTacografo = true;
+      }
+    }
+
     final earningsVal = existingShift != null
         ? (existingShift.driverEarnings > 0
             ? existingShift.driverEarnings.toStringAsFixed(2)
@@ -1909,10 +1937,10 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
         : '';
     final earningsCtrl = TextEditingController(text: earningsVal);
     final tipsCtrl = TextEditingController(text: existingShift != null && existingShift.tips > 0 ? existingShift.tips.toStringAsFixed(2) : '');
-    final startKmCtrl = TextEditingController(text: existingShift != null && existingShift.startKm > 0 ? existingShift.startKm.toStringAsFixed(0) : '');
-    final endKmCtrl = TextEditingController(text: existingShift != null && existingShift.endKm > 0 ? existingShift.endKm.toStringAsFixed(0) : '');
-    final kmCtrl = TextEditingController(text: existingShift != null && existingShift.totalKm > 0 ? existingShift.totalKm.toStringAsFixed(1) : '');
-    final hoursCtrl = TextEditingController(text: existingShift != null && existingShift.hoursWorked > 0 ? existingShift.hoursWorked.toStringAsFixed(1) : '');
+    final startKmCtrl = TextEditingController(text: initialStartKm > 0 ? initialStartKm.toStringAsFixed(0) : '');
+    final endKmCtrl = TextEditingController(text: initialEndKm > 0 ? initialEndKm.toStringAsFixed(0) : '');
+    final kmCtrl = TextEditingController(text: initialKm > 0 ? initialKm.toStringAsFixed(1) : '');
+    final hoursCtrl = TextEditingController(text: initialHours > 0 ? initialHours.toStringAsFixed(1) : '');
     final chargingCtrl = TextEditingController(text: existingShift != null && existingShift.chargingCost > 0 ? existingShift.chargingCost.toStringAsFixed(2) : '');
     final tollsCtrl = TextEditingController(text: existingShift != null && existingShift.tollsCost > 0 ? existingShift.tollsCost.toStringAsFixed(2) : '');
     final othersCtrl = TextEditingController(text: existingShift != null && existingShift.otherExpenses > 0 ? existingShift.otherExpenses.toStringAsFixed(2) : '');
@@ -2014,6 +2042,54 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                   // QUILÓMETROS & HORAS
                   const Text('2. Quilómetros & Horas de Condução', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryElectric)),
                   const SizedBox(height: 6),
+
+                  if (drivingSession != null && (drivingSession.totalKmDriven > 0 || drivingSession.totalDrivingSeconds > 0)) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentGreen.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.accentGreen.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.auto_awesome, color: AppTheme.accentGreen, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  importedFromTacografo
+                                      ? '⚡ Importado automaticamente das Horas TVDE deste dia'
+                                      : '⚡ Valores disponíveis no Tacógrafo TVDE deste dia',
+                                  style: const TextStyle(color: AppTheme.accentGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  '${drivingSession.formatHoursAndMins(drivingSession.totalDrivingSeconds)} de condução • ${drivingSession.totalKmDriven.toStringAsFixed(1)} km',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setModalState(() {
+                                if ((drivingSession.startKm ?? 0) > 0) startKmCtrl.text = drivingSession.startKm!.toStringAsFixed(0);
+                                if ((drivingSession.endKm ?? 0) > 0) endKmCtrl.text = drivingSession.endKm!.toStringAsFixed(0);
+                                if (drivingSession.totalKmDriven > 0) kmCtrl.text = drivingSession.totalKmDriven.toStringAsFixed(1);
+                                if (drivingSession.totalDrivingSeconds > 0) hoursCtrl.text = (drivingSession.totalDrivingSeconds / 3600.0).toStringAsFixed(1);
+                              });
+                            },
+                            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 24)),
+                            child: const Text('Reaplicar', style: TextStyle(color: AppTheme.primaryElectric, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   Row(
                     children: [
                       Expanded(
@@ -2021,7 +2097,14 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                           controller: startKmCtrl,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(labelText: 'Km Iniciais', hintText: 'Ex: 124500'),
-                          onChanged: (_) => setModalState(() {}),
+                          onChanged: (_) {
+                            final s = double.tryParse(startKmCtrl.text.replaceAll(',', '.')) ?? 0;
+                            final e = double.tryParse(endKmCtrl.text.replaceAll(',', '.')) ?? 0;
+                            if (e > s && s > 0) {
+                              kmCtrl.text = (e - s).toStringAsFixed(1);
+                            }
+                            setModalState(() {});
+                          },
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -2030,7 +2113,14 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                           controller: endKmCtrl,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(labelText: 'Km Finais', hintText: 'Ex: 124710'),
-                          onChanged: (_) => setModalState(() {}),
+                          onChanged: (_) {
+                            final s = double.tryParse(startKmCtrl.text.replaceAll(',', '.')) ?? 0;
+                            final e = double.tryParse(endKmCtrl.text.replaceAll(',', '.')) ?? 0;
+                            if (e > s && s > 0) {
+                              kmCtrl.text = (e - s).toStringAsFixed(1);
+                            }
+                            setModalState(() {});
+                          },
                         ),
                       ),
                       const SizedBox(width: 8),
