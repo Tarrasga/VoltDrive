@@ -2,6 +2,7 @@ package com.voltdrive.app
 
 import android.annotation.SuppressLint
 import android.Manifest
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -510,6 +511,7 @@ class MainActivity: FlutterFragmentActivity() {
                             )
                             val intent = Intent(Intent.ACTION_VIEW).apply {
                                 setDataAndType(uri, "application/vnd.android.package-archive")
+                                clipData = ClipData.newRawUri("", uri)
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
@@ -530,10 +532,10 @@ class MainActivity: FlutterFragmentActivity() {
                             @Suppress("DEPRECATION")
                             packageManager.getPackageInfo(packageName, 0)
                         }
-                        val vName = pInfo.versionName ?: "1.0.52"
+                        val vName = pInfo.versionName ?: "1.0.53"
                         result.success(vName)
                     } catch (e: Exception) {
-                        result.success("1.0.52")
+                        result.success("1.0.53")
                     }
                 }
                 else -> result.notImplemented()

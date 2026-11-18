@@ -24,12 +24,14 @@ class AppUpdateInfo {
 
 class UpdateService {
   // Versão padrão de fallback caso a leitura do sistema Android ainda não tenha ocorrido
-  static const String defaultVersion = '1.0.52';
+  static const String defaultVersion = '1.0.53';
   static String _currentVersion = defaultVersion;
 
   // Versão atual instalada da app (lida dinamicamente do sistema Android)
   static String get currentVersion => _currentVersion;
   static const String repoUrl = 'https://api.github.com/repos/Tarrasga/VoltDrive/releases/latest';
+  static const String rawVersionUrl = 'https://raw.githubusercontent.com/Tarrasga/VoltDrive/main/version.json';
+  static const String directReleaseUrl = 'https://github.com/Tarrasga/VoltDrive/releases/latest';
 
   static Future<void> init() async {
     try {
@@ -40,6 +42,7 @@ class UpdateService {
     } catch (_) {}
   }
 
+  /// Verificação resiliente em 3 níveis (Sem bloqueios do limite de taxa 403 do GitHub)
   static Future<AppUpdateInfo?> checkForUpdate() async {
     try {
       // Atualizar a versão com base no Android package manager em tempo real
@@ -48,6 +51,90 @@ class UpdateService {
         _currentVersion = realVersion;
       }
 
+      // NÍVEL 1: raw.githubusercontent.com (Rápido, sem limites de taxa, sem 403)
+      final rawUpdate = await _checkViaRawJson();
+      if (rawUpdate != null) {
+        return rawUpdate;
+      }
+
+      // NÍVEL 2: Redirecionamento 302 direto da página web do GitHub
+      final redirectUpdate = await _checkViaReleaseRedirect();
+      if (redirectUpdate != null) {
+        return redirectUpdate;
+      }
+
+      // NÍVEL 3: API REST Oficial do GitHub
+      return await _checkViaGithubApi();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Nível 1: Consulta direta a version.json em raw.githubusercontent.com
+  static Future<AppUpdateInfo?> _checkViaRawJson() async {
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 4);
+      final cacheBustUrl = '$rawVersionUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+      final request = await client.getUrl(Uri.parse(cacheBustUrl));
+      request.headers.set('User-Agent', 'VoltDrive-App');
+      request.headers.set('Cache-Control', 'no-cache');
+      request.headers.set('Pragma', 'no-cache');
+
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final Map<String, dynamic> json = jsonDecode(body);
+        final tag = (json['tag'] as String? ?? json['version'] as String? ?? '').replaceAll('v', '').trim();
+        final notes = json['release_notes'] as String? ?? 'Novas melhorias de desempenho e estabilidade.';
+        final apkUrl = json['download_url'] as String? ?? 'https://github.com/Tarrasga/VoltDrive/releases/latest/download/VoltDrive.apk';
+
+        final hasUpdate = _isNewer(tag, currentVersion);
+        return AppUpdateInfo(
+          hasUpdate: hasUpdate,
+          currentVersion: currentVersion,
+          latestVersion: tag.isEmpty ? currentVersion : 'v$tag',
+          downloadUrl: apkUrl,
+          releaseNotes: notes,
+          publishedAt: '',
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Nível 2: Consulta via redirecionamento 302 de /releases/latest
+  static Future<AppUpdateInfo?> _checkViaReleaseRedirect() async {
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 4);
+      final request = await client.getUrl(Uri.parse(directReleaseUrl));
+      request.followRedirects = false; // Queremos ler o cabeçalho 302 Location
+      request.headers.set('User-Agent', 'VoltDrive-App');
+
+      final response = await request.close();
+      if (response.statusCode == 301 || response.statusCode == 302 || response.statusCode == 307) {
+        final loc = response.headers.value('location') ?? '';
+        if (loc.contains('/releases/tag/')) {
+          final tag = loc.split('/releases/tag/').last.replaceAll('v', '').trim();
+          final hasUpdate = _isNewer(tag, currentVersion);
+          return AppUpdateInfo(
+            hasUpdate: hasUpdate,
+            currentVersion: currentVersion,
+            latestVersion: 'v$tag',
+            downloadUrl: 'https://github.com/Tarrasga/VoltDrive/releases/download/v$tag/VoltDrive.apk',
+            releaseNotes: 'Novas melhorias de estabilidade, desempenho e funcionalidades.',
+            publishedAt: '',
+          );
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Nível 3: Fallback via API REST Oficial
+  static Future<AppUpdateInfo?> _checkViaGithubApi() async {
+    try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 5);
       final cacheBustUrl = '$repoUrl?t=${DateTime.now().millisecondsSinceEpoch}';
@@ -70,7 +157,7 @@ class UpdateService {
       final publishedAt = json['published_at'] as String? ?? '';
 
       // Procurar o link do APK nos assets
-      String apkUrl = 'https://github.com/Tarrasga/VoltDrive/releases/latest';
+      String apkUrl = 'https://github.com/Tarrasga/VoltDrive/releases/latest/download/VoltDrive.apk';
       if (json['assets'] is List) {
         final assets = json['assets'] as List;
         for (final asset in assets) {
