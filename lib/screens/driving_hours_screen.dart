@@ -13,7 +13,7 @@ class DrivingHoursScreen extends StatefulWidget {
   State<DrivingHoursScreen> createState() => _DrivingHoursScreenState();
 }
 
-class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
+class _DrivingHoursScreenState extends State<DrivingHoursScreen> with WidgetsBindingObserver {
   DrivingShiftSession _session = DrivingShiftSession(
     id: DateTime.now().millisecondsSinceEpoch.toString(),
     date: DateTime.now(),
@@ -28,18 +28,33 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadSession();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_session.currentState != DrivingState.parado) {
+        setState(() {
+          _session.syncWithClock();
+        });
+        StorageService.saveCurrentDrivingSession(_session);
+      }
+    }
   }
 
   Future<void> _loadSession() async {
     final loaded = await StorageService.loadCurrentDrivingSession();
     final history = await StorageService.loadDrivingHistory();
+    loaded.syncWithClock();
     setState(() {
       _session = loaded;
       _history = history;
@@ -54,17 +69,15 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
   void _startTicker() {
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        if (_session.currentState == DrivingState.conduzindo) {
-          _session.totalDrivingSeconds++;
-          _session.currentContinuousDrivingSeconds++;
-        } else if (_session.currentState == DrivingState.emPausa) {
-          _session.totalBreakSeconds++;
+      if (!mounted) return;
+      if (_session.currentState != DrivingState.parado) {
+        setState(() {
+          _session.syncWithClock();
+        });
+        // Salva a cada 30 segundos para persistência segura
+        if (_session.totalDrivingSeconds % 30 == 0) {
+          StorageService.saveCurrentDrivingSession(_session);
         }
-      });
-      // Salva a cada 30 segundos
-      if (_session.totalDrivingSeconds % 30 == 0) {
-        StorageService.saveCurrentDrivingSession(_session);
       }
     });
   }
@@ -116,6 +129,7 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
         _session.startKm = inputKm;
       }
       _session.currentState = DrivingState.conduzindo;
+      _session.lastStateChangeTime = now;
       _session.logs.insert(
         0,
         DrivingSessionLog(
@@ -132,7 +146,9 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
   void _takeBreak() {
     final now = DateTime.now();
     setState(() {
+      _session.syncWithClock();
       _session.currentState = DrivingState.emPausa;
+      _session.lastStateChangeTime = now;
       _session.logs.insert(
         0,
         DrivingSessionLog(
@@ -148,11 +164,13 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
   void _resumeDrivingAfterBreak() {
     final now = DateTime.now();
     setState(() {
+      _session.syncWithClock();
       // Se a pausa foi de pelo menos 45 minutos (ou 15 min parciais), reinicia o contador contínuo
       if (_session.totalBreakSeconds >= 45 * 60) {
         _session.currentContinuousDrivingSeconds = 0;
       }
       _session.currentState = DrivingState.conduzindo;
+      _session.lastStateChangeTime = now;
       _session.logs.insert(
         0,
         DrivingSessionLog(
@@ -232,11 +250,13 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> {
       final now = DateTime.now();
       final endKm = double.tryParse(endKmController.text.replaceAll(',', '.'));
       setState(() {
+        _session.syncWithClock();
         _session.shiftEndTime = now;
         if (endKm != null && endKm > 0) {
           _session.endKm = endKm;
         }
         _session.currentState = DrivingState.parado;
+        _session.lastStateChangeTime = null;
         
         final kmDrivenStr = _session.totalKmDriven > 0 ? ' (Km Feitos: ${_session.totalKmDriven.toStringAsFixed(1)} km)' : '';
         _session.logs.insert(

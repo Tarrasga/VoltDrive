@@ -1112,7 +1112,18 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
   }
 
   Widget _buildBuddiesRadarCard() {
-    final list = BuddySafetyService.colleagues;
+    final rawList = List<BuddyMember>.from(BuddySafetyService.colleagues);
+    // Ordenar: SOS primeiro, depois Online (mais recente primeiro), depois Offline (mais recente primeiro)
+    rawList.sort((a, b) {
+      if (a.isSosActive && !b.isSosActive) return -1;
+      if (!a.isSosActive && b.isSosActive) return 1;
+      if (a.isOnline && !b.isOnline) return -1;
+      if (!a.isOnline && b.isOnline) return 1;
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
+
+    final onlineCount = rawList.where((c) => c.isOnline).length;
+    final offlineCount = rawList.where((c) => !c.isOnline).length;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1127,12 +1138,27 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.radar, color: AppTheme.accentGreen, size: 20),
-                  const SizedBox(width: 8),
-                  const Text('Radar de Colegas Ativos', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.radar, color: AppTheme.accentGreen, size: 20),
+                    const SizedBox(width: 8),
+                    const Text('Membros do Grupo TVDE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const SizedBox(width: 8),
+                    if (rawList.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentGreen.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$onlineCount On • $offlineCount Off',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.accentGreen),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               InkWell(
                 onTap: _openSettingsDialog,
@@ -1176,7 +1202,7 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          if (list.isEmpty)
+          if (rawList.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Center(
@@ -1184,12 +1210,12 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
                   children: [
                     const Icon(Icons.people_outline, color: AppTheme.textMuted, size: 36),
                     const SizedBox(height: 8),
-                    const Text('Nenhum colega ativo no radar neste momento.', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                    const Text('Nenhum colega detetado no grupo ainda.', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
-                        'O radar mostra apenas colegas com o VoltDrive aberto a emitir sinal nos últimos 15 min.\n\nPara te verem, os teus colegas têm de ter o mesmo código "${BuddySafetyService.teamCode}"${BuddySafetyService.teamPassword.isNotEmpty ? ' e a mesma palavra-passe' : ''}.',
+                        'Os membros adicionados permanecem sempre visíveis (online ou offline).\n\nPara pertencer ao teu grupo, os colegas devem ter o código "${BuddySafetyService.teamCode}"${BuddySafetyService.teamPassword.isNotEmpty ? ' e a mesma palavra-passe' : ''}.',
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: AppTheme.textMuted, fontSize: 11, height: 1.4),
                       ),
@@ -1225,60 +1251,136 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: list.length,
+              itemCount: rawList.length,
               separatorBuilder: (_, __) => const Divider(color: AppTheme.darkBorder, height: 16),
               itemBuilder: (ctx, i) {
-                final c = list[i];
+                final c = rawList[i];
                 final dist = _myLocation != null
                     ? '${c.distanceToKm(_myLocation!.latitude, _myLocation!.longitude).toStringAsFixed(1)} km'
                     : '--';
+                final isOnline = c.isOnline;
+                final statusColor = c.isSosActive
+                    ? AppTheme.dangerRed
+                    : (isOnline ? AppTheme.accentGreen : AppTheme.textMuted);
 
-                return Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: c.isSosActive
-                          ? AppTheme.dangerRed.withOpacity(0.2)
-                          : AppTheme.primaryElectric.withOpacity(0.15),
-                      child: Text(
-                        c.name.isNotEmpty ? c.name[0] : 'C',
-                        style: TextStyle(
-                          color: c.isSosActive ? AppTheme.dangerRed : AppTheme.primaryElectric,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                return Opacity(
+                  opacity: isOnline || c.isSosActive ? 1.0 : 0.7,
+                  child: Row(
+                    children: [
+                      // Avatar com anel de cor para Online (Verde) vs Offline (Cinzento)
+                      Stack(
                         children: [
-                          Row(
-                            children: [
-                              Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                              const SizedBox(width: 6),
-                              if (c.isSosActive)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(color: AppTheme.dangerRed, borderRadius: BorderRadius.circular(6)),
-                                  child: const Text('SOS', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: statusColor,
+                                width: isOnline || c.isSosActive ? 2 : 1,
+                              ),
+                            ),
+                            child: CircleAvatar(
+                              radius: 18,
+                              backgroundColor: c.isSosActive
+                                  ? AppTheme.dangerRed.withOpacity(0.2)
+                                  : (isOnline
+                                      ? AppTheme.accentGreen.withOpacity(0.15)
+                                      : Colors.white10),
+                              child: Text(
+                                c.name.isNotEmpty ? c.name[0].toUpperCase() : 'C',
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
                                 ),
-                            ],
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${c.vehicle} • $dist de ti • Bateria: ${c.batteryPercent}%',
-                            style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: statusColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: AppTheme.darkCard, width: 2),
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.navigation_outlined, color: AppTheme.primaryElectric, size: 20),
-                      tooltip: 'Rota para o Colega',
-                      onPressed: () => AssistantService.openUrl(c.googleMapsUrl),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    c.name,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: isOnline || c.isSosActive ? Colors.white : Colors.white70,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                if (c.isSosActive)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.dangerRed,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text('SOS', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  )
+                                else
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isOnline
+                                          ? AppTheme.accentGreen.withOpacity(0.15)
+                                          : Colors.white.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: isOnline
+                                            ? AppTheme.accentGreen.withOpacity(0.5)
+                                            : AppTheme.darkBorder,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      isOnline ? '🟢 Online' : '⚪ ${c.lastSeenText}',
+                                      style: TextStyle(
+                                        color: isOnline ? AppTheme.accentGreen : AppTheme.textMuted,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              isOnline
+                                  ? '${c.vehicle} • $dist • Bateria: ${c.batteryPercent}% • ${c.status}'
+                                  : '${c.vehicle} • Última pos.: $dist • Bateria: ${c.batteryPercent}%',
+                              style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.navigation_outlined, color: AppTheme.primaryElectric, size: 20),
+                        tooltip: 'Rota GPS para o Colega',
+                        onPressed: () => AssistantService.openUrl(c.googleMapsUrl),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),

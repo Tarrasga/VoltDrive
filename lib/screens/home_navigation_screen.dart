@@ -53,6 +53,17 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
     // Pedir permissões essenciais de Notificações e GPS no arranque
     AssistantService.requestNotificationPermission();
     AssistantService.requestLocationPermission();
+
+    // Verificar atualizações automaticamente sempre que a app abre
+    try {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      final update = await UpdateService.checkForUpdate();
+      if (!mounted) return;
+      if (update != null && update.hasUpdate) {
+        UpdateService.showUpdateDialog(context, update, manualCheck: false);
+      }
+    } catch (_) {}
   }
 
   @override

@@ -5,6 +5,7 @@ import '../models/daily_shift.dart';
 import '../models/driving_session.dart';
 import '../models/financial_goals.dart';
 import '../models/monthly_expense.dart';
+import '../models/app_suggestion.dart';
 import 'cloud_sync_service.dart';
 import 'update_service.dart';
 
@@ -15,6 +16,7 @@ class StorageService {
   static const String _keyCurrentDrivingSession = 'voltdrive_current_driving_session';
   static const String _keyDrivingHistory = 'voltdrive_driving_history';
   static const String _keyMonthlyExpenses = 'voltdrive_monthly_expenses';
+  static const String _keyAppSuggestions = 'voltdrive_app_suggestions';
 
   // ==========================================
   // DESPESAS MENSAIS (BATERIAS, VIA VERDE, PNEUS)
@@ -231,7 +233,7 @@ class StorageService {
   // REGISTO DE HORAS DE CONDUÇÃO (LEI TVDE)
   // ==========================================
 
-  // Carregar sessão de condução ativa do dia
+  // Carregar sessão de condução ativa do dia (ou turno que cruzou a meia-noite)
   static Future<DrivingShiftSession> loadCurrentDrivingSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -240,12 +242,30 @@ class StorageService {
         final Map<String, dynamic> map = jsonDecode(jsonString);
         final session = DrivingShiftSession.fromJson(map);
         final now = DateTime.now();
-        if (session.date.year == now.year && session.date.month == now.month && session.date.day == now.day) {
-          return session;
-        } else {
-          // Se a sessão for de um dia anterior e teve atividade, arquiva automaticamente no histórico
-          if (session.totalDrivingSeconds > 0 || (session.startKm != null && session.startKm! > 0) || session.logs.isNotEmpty) {
+
+        // 1. Se o turno ainda estiver em curso (conduzindo ou em pausa), mantê-lo ativo mesmo após a meia-noite!
+        if (session.currentState != DrivingState.parado) {
+          final lastActivity = session.lastStateChangeTime ?? session.shiftStartTime ?? session.date;
+          // Se passou mais de 24 horas sem qualquer sinal, encerra e arquiva por segurança
+          if (now.difference(lastActivity).inHours >= 24) {
+            session.syncWithClock();
+            session.currentState = DrivingState.parado;
+            session.shiftEndTime ??= lastActivity.add(const Duration(hours: 10));
             await archiveDrivingSession(session);
+          } else {
+            session.syncWithClock();
+            await saveCurrentDrivingSession(session);
+            return session;
+          }
+        } else {
+          // 2. Se já estava parado e é do mesmo dia civil, retorna a sessão
+          if (session.date.year == now.year && session.date.month == now.month && session.date.day == now.day) {
+            return session;
+          } else {
+            // Se for de um dia anterior e teve atividade, arquiva automaticamente no histórico
+            if (session.totalDrivingSeconds > 0 || (session.startKm != null && session.startKm! > 0) || session.logs.isNotEmpty) {
+              await archiveDrivingSession(session);
+            }
           }
         }
       }
@@ -358,6 +378,7 @@ class StorageService {
     final goals = await loadFinancialGoals();
     final monthlyExpenses = await loadMonthlyExpenses();
     final drivingHistory = await loadDrivingHistory();
+    final suggestions = await loadAppSuggestions();
     final userEmail = prefs.getString('voltdrive_auth_user_email') ?? '';
 
     final backup = {
@@ -370,6 +391,7 @@ class StorageService {
       'financialGoals': goals.toJson(),
       'monthlyExpenses': monthlyExpenses.map((m) => m.toJson()).toList(),
       'drivingHistory': drivingHistory.map((d) => d.toJson()).toList(),
+      'suggestions': suggestions.map((s) => s.toJson()).toList(),
     };
 
     return const JsonEncoder.withIndent('  ').convert(backup);
@@ -427,6 +449,57 @@ class StorageService {
       shiftCount = list.length;
     }
 
+    // 6. Restaurar Pasta de Sugestões
+    if (data['suggestions'] != null) {
+      final list = (data['suggestions'] as List)
+          .map((item) => jsonEncode(item))
+          .toList();
+      await prefs.setStringList(_keyAppSuggestions, list);
+    }
+
     return shiftCount;
+  }
+
+  // ==========================================
+  // PASTA DE SUGESTÕES E IDEIAS
+  // ==========================================
+
+  /// Carrega todas as sugestões guardadas na pasta
+  static Future<List<AppSuggestion>> loadAppSuggestions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final listJson = prefs.getStringList(_keyAppSuggestions);
+      if (listJson != null && listJson.isNotEmpty) {
+        final list = listJson
+            .map((item) => AppSuggestion.fromJson(jsonDecode(item)))
+            .toList();
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return list;
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Guarda ou atualiza uma sugestão na pasta
+  static Future<void> saveAppSuggestion(AppSuggestion suggestion) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = await loadAppSuggestions();
+    final idx = list.indexWhere((s) => s.id == suggestion.id);
+    if (idx >= 0) {
+      list[idx] = suggestion;
+    } else {
+      list.insert(0, suggestion);
+    }
+    final updatedJson = list.map((s) => jsonEncode(s.toJson())).toList();
+    await prefs.setStringList(_keyAppSuggestions, updatedJson);
+  }
+
+  /// Elimina uma sugestão da pasta
+  static Future<void> deleteAppSuggestion(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = await loadAppSuggestions();
+    list.removeWhere((s) => s.id == id);
+    final updatedJson = list.map((s) => jsonEncode(s.toJson())).toList();
+    await prefs.setStringList(_keyAppSuggestions, updatedJson);
   }
 }

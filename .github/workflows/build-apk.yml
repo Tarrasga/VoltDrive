@@ -102,26 +102,28 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Histórico de Horas Dias Anteriores & Preenchimento Automático Km/Horas nos Lucros)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Temporizadores TVDE Resilientes, Membros Online/Offline nos Grupos, Verificação de Atualizações no Arranque & Pasta de Sugestões)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
-            ### 🚀 Novidades e Melhorias:
-            1. **📜 Histórico Completo de Horas TVDE de Dias Anteriores**:
-               - Nova aba no ecrã de Horas TVDE: `[ ⏱️ Turno em Curso ]` | `[ 📜 Dias Anteriores ]` para rever os turnos passados.
-               - Detalhe de cada dia com horas de condução, pausas cumpridas, odómetro inicial/final e total de km percorridos.
-               - Verificação de conformidade com a Lei TVDE (Lei n.º 45/2018: limite de 10h diárias e pausas obrigatórias).
-               - Consulta de auditoria de eventos e opção de exportar o registo do dia para fiscalização policial (PSP/GNR/IMT).
-               - Possibilidade de adicionar ou editar turnos de dias anteriores manualmente.
-               - Arquivamento automático de segurança caso a app mude de dia sem encerramento manual.
-            2. **⚡ Preenchimento Automático de Km e Horas nos Lucros do Dia**:
-               - Ao abrir o registo de lucro do turno no Calendário ou Fecho do Dia, os **Km Percorridos** (e odómetro inicial/final) e o **Tempo de Trabalho** registados nas Horas TVDE são preenchidos automaticamente!
-               - Identificação visual imediata com botão para reaplicar ou ajustar conforme necessário.
-            3. **🔋 Despesas Mensais Editáveis & Folha Excel (CSV)**:
-               - Gestão de custos fixos (baterias Zoe, portagens Via Verde, pneus, seguro) deduzidos do lucro real no bolso.
-               - Exportação profissional em Folha de Cálculo Excel (CSV) e Relatório PDF.
+            ### 🚀 O que há de novo e inovador nesta versão:
+            1. **⏱️ Temporizadores TVDE Resilientes (Sem Desligar do Nada)**:
+               - Cálculo baseado no relógio real do sistema (`syncWithClock` via timestamps precisos).
+               - Os contadores de condução e pausa não param nem desligam quando a app fica em segundo plano, com ecrã desligado ou durante a navegação no Uber, Bolt ou Waze.
+               - Suporte completo a turnos noturnos que cruzam a meia-noite sem perda de dados nem reinicialização indesejada.
+               - Sincronização e gravação instantânea sempre que a app é retomada.
+            2. **👥 Membros do Grupo TVDE Sempre Visíveis (Online e Offline)**:
+               - Os membros da tua equipa permanecem sempre visíveis no radar e na lista, mesmo quando estão offline.
+               - Diferenciação visual clara com cores: `🟢 Online` (em verde elétrico para colegas ativos nos últimos 5 min) vs `⚪ Offline` (em cinzento suave indicando há quanto tempo estiveram ativos).
+               - Cache local persistente para não perder a lista de colegas entre reinícios da aplicação.
+            3. **🔔 Verificação Automática de Atualizações no Arranque**:
+               - Sempre que abres o VoltDrive, a app pesquisa automaticamente por novas versões no GitHub.
+               - O alerta de atualização apresenta agora com destaque o que está a inovar nesta versão antes de instalares.
+            4. **💡 Pasta de Sugestões & Ideias para a App**:
+               - Nova área dedicada acessível nas Definições para enviares as tuas sugestões de melhoria, novas funções TVDE ou reportares erros.
+               - Envio direto para o programador via WhatsApp ou armazenamento organizado na tua pasta pessoal.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

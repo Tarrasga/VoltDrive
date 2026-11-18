@@ -16,6 +16,7 @@ class BuddySafetyService {
   static const String _keyEmergencyContacts = 'safety_emergency_contacts';
   static const String _keyDiscreetMode = 'safety_discreet_mode';
   static const String _keySharingActive = 'safety_sharing_active';
+  static const String _keyCachedGroupMembersPrefix = 'safety_group_members_cache_';
 
   static String teamCode = 'ZOE-PORTUGAL';
   static String teamPassword = '';
@@ -95,10 +96,42 @@ class BuddySafetyService {
       ));
     }
 
-    // Garantir que a lista de colegas começa limpa (sem bots)
-    colleagues.clear();
+    // Carregar colegas previamente conhecidos da equipa guardados localmente
+    await _loadColleaguesFromPrefs();
 
     startPolling();
+  }
+
+  static Future<void> _loadColleaguesFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheKey = '$_keyCachedGroupMembersPrefix$effectiveChannelTopic';
+      final listJson = prefs.getStringList(cacheKey);
+      if (listJson != null && listJson.isNotEmpty) {
+        colleagues.clear();
+        for (final item in listJson) {
+          try {
+            colleagues.add(BuddyMember.fromJson(jsonDecode(item)));
+          } catch (_) {}
+        }
+        updatesNotifier.value++;
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> _saveColleaguesToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheKey = '$_keyCachedGroupMembersPrefix$effectiveChannelTopic';
+      final listJson = colleagues.map((c) => jsonEncode(c.toJson())).toList();
+      await prefs.setStringList(cacheKey, listJson);
+    } catch (_) {}
+  }
+
+  static Future<void> removeColleague(String id) async {
+    colleagues.removeWhere((c) => c.id == id);
+    await _saveColleaguesToPrefs();
+    updatesNotifier.value++;
   }
 
   static Future<void> saveConfig({
@@ -125,7 +158,8 @@ class BuddySafetyService {
     await prefs.setBool(_keyDiscreetMode, isDiscreetMode);
     await prefs.setBool(_keySharingActive, isSharingActive);
 
-    colleagues.clear();
+    // Carrega a lista de colegas correspondente ao novo canal/equipa
+    await _loadColleaguesFromPrefs();
     updatesNotifier.value++;
     startPolling();
   }
@@ -434,15 +468,21 @@ class BuddySafetyService {
               } else {
                 colleagues.add(updated);
               }
+              await _saveColleaguesToPrefs();
               updatesNotifier.value++;
             } catch (_) {}
           }
         } catch (_) {}
       }
 
-      // Limpar colegas cujo último sinal de presença foi há mais de 15 minutos
+      // Colegas são mantidos mesmo offline com indicação visual!
+      // Limpar apenas se não transmitirem sinal há mais de 30 dias por higiene de cache
       final now = DateTime.now();
-      colleagues.removeWhere((c) => now.difference(c.updatedAt).inMinutes > 15);
+      final beforeCount = colleagues.length;
+      colleagues.removeWhere((c) => now.difference(c.updatedAt).inDays > 30);
+      if (colleagues.length != beforeCount) {
+        await _saveColleaguesToPrefs();
+      }
       updatesNotifier.value++;
     } catch (_) {}
   }

@@ -45,6 +45,7 @@ class DrivingShiftSession {
   int currentContinuousDrivingSeconds;
   int totalBreakSeconds;
   DrivingState currentState;
+  DateTime? lastStateChangeTime;
   List<DrivingSessionLog> logs;
 
   DrivingShiftSession({
@@ -59,8 +60,26 @@ class DrivingShiftSession {
     this.currentContinuousDrivingSeconds = 0,
     this.totalBreakSeconds = 0,
     this.currentState = DrivingState.parado,
+    this.lastStateChangeTime,
     List<DrivingSessionLog>? logs,
   }) : logs = logs ?? [];
+
+  // Sincroniza os contadores com o relógio real do sistema (garante que não perde tempo em background ou tela desligada)
+  void syncWithClock() {
+    if (lastStateChangeTime == null || currentState == DrivingState.parado) return;
+    final now = DateTime.now();
+    final elapsed = now.difference(lastStateChangeTime!).inSeconds;
+    if (elapsed <= 0) return;
+
+    if (currentState == DrivingState.conduzindo) {
+      totalDrivingSeconds += elapsed;
+      currentContinuousDrivingSeconds += elapsed;
+      lastStateChangeTime = now;
+    } else if (currentState == DrivingState.emPausa) {
+      totalBreakSeconds += elapsed;
+      lastStateChangeTime = now;
+    }
+  }
 
   // Km totais rodados no turno
   double get totalKmDriven {
@@ -115,6 +134,7 @@ class DrivingShiftSession {
     'currentContinuousDrivingSeconds': currentContinuousDrivingSeconds,
     'totalBreakSeconds': totalBreakSeconds,
     'currentState': currentState.index,
+    'lastStateChangeTime': lastStateChangeTime?.toIso8601String(),
     'logs': logs.map((l) => l.toJson()).toList(),
   };
 
@@ -130,6 +150,7 @@ class DrivingShiftSession {
     currentContinuousDrivingSeconds: json['currentContinuousDrivingSeconds'] as int? ?? 0,
     totalBreakSeconds: json['totalBreakSeconds'] as int? ?? 0,
     currentState: DrivingState.values[json['currentState'] as int? ?? 0],
+    lastStateChangeTime: json['lastStateChangeTime'] != null ? DateTime.tryParse(json['lastStateChangeTime'] as String) : null,
     logs: (json['logs'] as List<dynamic>?)?.map((l) => DrivingSessionLog.fromJson(l as Map<String, dynamic>)).toList(),
   );
 }

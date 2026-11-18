@@ -9,6 +9,7 @@ import '../services/update_service.dart';
 import '../theme/app_theme.dart';
 import 'financial_goals_screen.dart';
 import 'safety_buddies_screen.dart';
+import 'suggestions_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -934,6 +935,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             const SizedBox(height: 12),
+
+            // CARTÃO: PASTA DE SUGESTÕES E IDEIAS
+            Card(
+              color: AppTheme.darkCard,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: AppTheme.accentGreen.withOpacity(0.5)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.folder_special, color: AppTheme.accentGreen, size: 20),
+                        SizedBox(width: 8),
+                        Text('Pasta de Sugestões para a App', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Envia novas ideias, melhorias de funções TVDE ou reporta erros diretamente para o programador via WhatsApp ou guarda na tua pasta pessoal.',
+                      style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SuggestionsScreen()),
+                          );
+                        },
+                        icon: const Icon(Icons.lightbulb_outline, size: 18, color: Colors.black),
+                        label: const Text('Abrir Pasta de Sugestões', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentGreen,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
 
             // VERIFICAÇÃO DE ATUALIZAÇÕES
             Card(

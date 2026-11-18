@@ -24,7 +24,7 @@ class AppUpdateInfo {
 
 class UpdateService {
   // Versão padrão de fallback caso a leitura do sistema Android ainda não tenha ocorrido
-  static const String defaultVersion = '1.0.48';
+  static const String defaultVersion = '1.0.49';
   static String _currentVersion = defaultVersion;
 
   // Versão atual instalada da app (lida dinamicamente do sistema Android)
@@ -184,6 +184,53 @@ class UpdateService {
             const Text(
               'Atualização direta com descarregamento e instalação automática no teu telemóvel.',
               style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.accentGreen.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.accentGreen.withOpacity(0.4)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.auto_awesome, color: AppTheme.accentGreen, size: 16),
+                  SizedBox(width: 8),
+                  Text(
+                    '🚀 O que está a inovar nesta versão:',
+                    style: TextStyle(
+                      color: AppTheme.accentGreen,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 180),
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.darkSurface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.darkBorder),
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  update.releaseNotes.trim().isNotEmpty
+                      ? update.releaseNotes.trim()
+                      : 'Novas melhorias de estabilidade, desempenho e funcionalidades para condutores TVDE.',
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 12,
+                    height: 1.45,
+                  ),
+                ),
+              ),
             ),
           ],
         ),

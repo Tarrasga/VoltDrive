@@ -63,6 +63,23 @@ class BuddyMember {
 
   String get googleMapsUrl => 'https://maps.google.com/?q=$latitude,$longitude';
 
+  /// Considerado online se transmitiu sinal nos últimos 5 minutos
+  bool get isOnline => DateTime.now().difference(updatedAt).inMinutes <= 5;
+
+  /// Texto amigável de estado e última vez visto
+  String get lastSeenText {
+    final diff = DateTime.now().difference(updatedAt);
+    if (diff.inMinutes <= 5) {
+      return 'Online';
+    } else if (diff.inMinutes < 60) {
+      return 'Offline há ${diff.inMinutes}m';
+    } else if (diff.inHours < 24) {
+      return 'Offline há ${diff.inHours}h';
+    } else {
+      return 'Offline há ${diff.inDays}d';
+    }
+  }
+
   double distanceToKm(double myLat, double myLng) {
     const double p = 0.017453292519943295; // Math.PI / 180
     final double a = 0.5 -
