@@ -558,7 +558,7 @@ class _DrivingHoursScreenState extends State<DrivingHoursScreen> with WidgetsBin
       sb.writeln('• ${DateFormat("HH:mm:ss").format(l.timestamp)} - ${l.description}');
     }
     sb.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    sb.writeln('Gerado pelo assistente VoltDrive (Renault Zoe Edition)');
+    sb.writeln('Gerado pelo assistente VoltDrive TVDE');
 
     AssistantService.shareFile(
       fileName: 'VoltDrive_Horas_TVDE_${dateStr.replaceAll("/", "_")}.txt',

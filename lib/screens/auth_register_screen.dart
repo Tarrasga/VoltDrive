@@ -347,7 +347,7 @@ class _AuthRegisterScreenState extends State<AuthRegisterScreen> {
                     const Icon(Icons.shield_outlined, color: AppTheme.textMuted, size: 13),
                     const SizedBox(width: 5),
                     Text(
-                      'VoltDrive v${UpdateService.currentVersion} • Renault Zoe Z.E. 50 Edition',
+                      'VoltDrive v${UpdateService.currentVersion} • TVDE Edition',
                       style: const TextStyle(
                         color: AppTheme.textMuted,
                         fontSize: 11,

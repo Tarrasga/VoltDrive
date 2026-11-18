@@ -102,7 +102,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Temporizadores TVDE Resilientes, Membros Online/Offline nos Grupos, Verificação de Atualizações no Arranque & Pasta de Sugestões)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Novo Seletor Interativo de Carros TVDE & Catálogo Completo de Veículos)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
@@ -110,20 +110,17 @@ jobs:
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
             ### 🚀 O que há de novo e inovador nesta versão:
-            1. **⏱️ Temporizadores TVDE Resilientes (Sem Desligar do Nada)**:
-               - Cálculo baseado no relógio real do sistema (`syncWithClock` via timestamps precisos).
-               - Os contadores de condução e pausa não param nem desligam quando a app fica em segundo plano, com ecrã desligado ou durante a navegação no Uber, Bolt ou Waze.
-               - Suporte completo a turnos noturnos que cruzam a meia-noite sem perda de dados nem reinicialização indesejada.
-               - Sincronização e gravação instantânea sempre que a app é retomada.
-            2. **👥 Membros do Grupo TVDE Sempre Visíveis (Online e Offline)**:
-               - Os membros da tua equipa permanecem sempre visíveis no radar e na lista, mesmo quando estão offline.
-               - Diferenciação visual clara com cores: `🟢 Online` (em verde elétrico para colegas ativos nos últimos 5 min) vs `⚪ Offline` (em cinzento suave indicando há quanto tempo estiveram ativos).
-               - Cache local persistente para não perder a lista de colegas entre reinícios da aplicação.
-            3. **🔔 Verificação Automática de Atualizações no Arranque**:
-               - Sempre que abres o VoltDrive, a app pesquisa automaticamente por novas versões no GitHub.
-               - O alerta de atualização apresenta agora com destaque o que está a inovar nesta versão antes de instalares.
-            4. **💡 Pasta de Sugestões & Ideias para a App**:
-               - Nova área dedicada acessível nas Definições para enviares as tuas sugestões de melhoria, novas funções TVDE ou reportares erros.
-               - Envio direto para o programador via WhatsApp ou armazenamento organizado na tua pasta pessoal.
+            1. **🚗 Novo Seletor Interativo de Carros TVDE**:
+               - Nova área visual onde podes escolher o teu carro a partir de um catálogo completo de veículos elétricos e TVDE em Portugal.
+               - Pesquisa rápida por texto (ex: Zoe, Tesla, MG4, Dolphin, Leaf, Kona, etc.) e filtros por marca (Renault, Tesla, MG, BYD, Peugeot, Kia, Hyundai, Nissan, Volkswagen, Dacia, etc.).
+               - Aplicação automática da capacidade real da bateria (kWh), consumo médio (kWh/100km) e potência AC (kW) com apenas 1 toque.
+               - Possibilidade de configurar qualquer carro personalizado manualmente se não estiver na lista.
+            2. **⚡ Acesso Rápido na Calculadora e Definições**:
+               - Podes agora ver e mudar de carro diretamente a partir da Calculadora de Viagens com o botão rápido `[ 🚗 Carro: ... (Mudar) ]` sem teres de navegar para outros ecrãs.
+               - Cartão de destaque nas Definições com os dados do teu veículo ativo e atalhos rápidos dos modelos mais comuns.
+            3. **👥 Radar de Segurança e SOS Atualizados com o Teu Carro**:
+               - O radar da equipa e os alertas de emergência SOS transmitem agora o modelo exato do teu carro escolhido em vez do modelo genérico anterior.
+            4. **⏱️ Temporizadores e Histórico TVDE Totalmente Integrados**:
+               - Todos os cálculos de consumo, custos por km e auditorias de horas adaptam-se dinamicamente ao carro selecionado.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

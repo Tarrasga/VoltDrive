@@ -217,7 +217,7 @@ class _ChargingStationsScreenState extends State<ChargingStationsScreen> {
                     ],
                   ),
                   const Divider(color: AppTheme.darkBorder, height: 24),
-                  const Text('Simulador de Carga Renault Zoe:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('Simulador de Carga (${_profile.name}):', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 12),
 
                   // SLIDERS BATERIA ATUAL -> PRETENDIDA

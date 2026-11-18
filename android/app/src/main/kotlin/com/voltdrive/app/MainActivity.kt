@@ -530,10 +530,10 @@ class MainActivity: FlutterFragmentActivity() {
                             @Suppress("DEPRECATION")
                             packageManager.getPackageInfo(packageName, 0)
                         }
-                        val vName = pInfo.versionName ?: "1.0.49"
+                        val vName = pInfo.versionName ?: "1.0.50"
                         result.success(vName)
                     } catch (e: Exception) {
-                        result.success("1.0.49")
+                        result.success("1.0.50")
                     }
                 }
                 else -> result.notImplemented()

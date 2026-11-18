@@ -187,7 +187,7 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Renault Zoe Edition • TVDE Protegido',
+          'Edição TVDE • Acesso Protegido',
           style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
         ),
         const SizedBox(height: 10),
@@ -383,7 +383,7 @@ class _AuthLockScreenState extends State<AuthLockScreen> {
             const Icon(Icons.shield_outlined, color: AppTheme.textMuted, size: 13),
             const SizedBox(width: 5),
             Text(
-              'VoltDrive v${UpdateService.currentVersion} • Renault Zoe Z.E. 50',
+              'VoltDrive v${UpdateService.currentVersion} • TVDE Edition',
               style: const TextStyle(
                 color: AppTheme.textMuted,
                 fontSize: 11,

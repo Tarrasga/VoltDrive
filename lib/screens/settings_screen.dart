@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import 'financial_goals_screen.dart';
 import 'safety_buddies_screen.dart';
 import 'suggestions_screen.dart';
+import '../widgets/vehicle_picker_modal.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -51,14 +52,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  void _applyVehiclePreset(String name, double battery, double consumption) {
+  void _openVehiclePicker() async {
+    final updated = await VehiclePickerModal.show(
+      context,
+      currentVehicleName: _nameController.text,
+      onSelected: (profile) {
+        setState(() {
+          _nameController.text = profile.name;
+          _batteryController.text = profile.batteryCapacityKwh.toString();
+          _consumptionController.text = profile.avgConsumptionKwh100.toString();
+        });
+      },
+    );
+    if (updated != null && mounted) {
+      setState(() {
+        _nameController.text = updated.name;
+        _batteryController.text = updated.batteryCapacityKwh.toString();
+        _consumptionController.text = updated.avgConsumptionKwh100.toString();
+      });
+    }
+  }
+
+  void _applyVehiclePreset(String name, double battery, double consumption) async {
     setState(() {
       _nameController.text = name;
       _batteryController.text = battery.toString();
       _consumptionController.text = consumption.toString();
     });
+    final profile = VehicleProfile(
+      name: name,
+      batteryCapacityKwh: battery,
+      avgConsumptionKwh100: consumption,
+      homeKwhPrice: double.tryParse(_homeKwhController.text.replaceAll(',', '.')) ?? 0.16,
+      publicKwhPrice: double.tryParse(_publicKwhController.text.replaceAll(',', '.')) ?? 0.32,
+      platformFeePercent: double.tryParse(_platformFeeController.text.replaceAll(',', '.')) ?? 25.0,
+      fleetCommissionPercent: double.tryParse(_fleetFeeController.text.replaceAll(',', '.')) ?? 0.0,
+      targetDailyProfit: double.tryParse(_targetProfitController.text.replaceAll(',', '.')) ?? 120.0,
+    );
+    await StorageService.saveVehicleProfile(profile);
+    await AssistantService.syncSettings(profile);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Valores de $name aplicados!'), backgroundColor: AppTheme.primaryElectric),
+      SnackBar(content: Text('🚗 $name selecionado e guardado!'), backgroundColor: AppTheme.accentGreen),
     );
   }
 
@@ -418,25 +453,122 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // PRESETS RÁPIDOS DE CARROS TVDE ELÉTRICOS (Com destaque no Renault Zoe)
+            // CARTÃO PRINCIPAL: ESCOLHER O CARRO TVDE
             Card(
+              color: AppTheme.darkCard,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: AppTheme.primaryElectric.withOpacity(0.4)),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(14.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Modelos Comuns TVDE (Toque para aplicar)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryElectric)),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildPresetChip('Renault Zoe Z.E. 50 (22kW AC)', 52.0, 18.6, isHighlight: true),
-                        _buildPresetChip('Tesla Model 3', 60.0, 14.5),
-                        _buildPresetChip('MG4 EV', 51.0, 15.8),
-                        _buildPresetChip('BYD Atto 3', 60.5, 16.0),
-                        _buildPresetChip('Kia Niro EV', 64.0, 15.5),
-                        _buildPresetChip('Nissan Leaf', 40.0, 16.5),
+                        const Row(
+                          children: [
+                            Icon(Icons.directions_car_filled, color: AppTheme.primaryElectric, size: 22),
+                            SizedBox(width: 8),
+                            Text('O Teu Carro TVDE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentGreen.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.accentGreen.withOpacity(0.4)),
+                          ),
+                          child: const Text('Configurado', style: TextStyle(color: AppTheme.accentGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Caixa em destaque com o carro selecionado
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.darkSurface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.darkBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryElectric.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.electric_car, color: AppTheme.primaryElectric, size: 28),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _nameController.text.isNotEmpty ? _nameController.text : 'Renault Zoe Z.E. 50',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Bateria: ${_batteryController.text} kWh',
+                                      style: const TextStyle(color: AppTheme.accentGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                                    ),
+                                    const Text(' • ', style: TextStyle(color: AppTheme.textMuted)),
+                                    Text(
+                                      '${_consumptionController.text} kWh/100km',
+                                      style: const TextStyle(color: AppTheme.primaryElectric, fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // BOTÃO PRINCIPAL: ESCOLHER O CARRO DA LISTA
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _openVehiclePicker,
+                        icon: const Icon(Icons.format_list_bulleted, color: Colors.black, size: 20),
+                        label: const Text(
+                          'Escolher o Meu Carro (Catálogo TVDE)',
+                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentGreen,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Atalhos rápidos dos modelos mais frequentes
+                    const Text('Atalhos Rápidos TVDE:', style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _buildPresetChip('Renault Zoe Z.E. 50 (22kW AC)', 52.0, 18.6, isHighlight: _nameController.text.contains('Zoe')),
+                        _buildPresetChip('Tesla Model 3 RWD', 60.0, 14.2, isHighlight: _nameController.text.contains('Model 3')),
+                        _buildPresetChip('MG4 EV (51 kWh)', 51.0, 15.5, isHighlight: _nameController.text.contains('MG4')),
+                        _buildPresetChip('BYD Dolphin', 60.4, 15.2, isHighlight: _nameController.text.contains('Dolphin')),
+                        _buildPresetChip('Peugeot e-208', 50.0, 15.4, isHighlight: _nameController.text.contains('e-208')),
+                        _buildPresetChip('Nissan Leaf', 40.0, 16.5, isHighlight: _nameController.text.contains('Leaf')),
                       ],
                     ),
                   ],
@@ -446,7 +578,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 12),
 
-            // DADOS DO VEÍCULO
+            // DADOS TÉCNICOS DETALHADOS (OPCIONAL)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -455,11 +587,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.directions_car, color: AppTheme.primaryElectric, size: 20),
+                        Icon(Icons.tune, color: AppTheme.primaryElectric, size: 20),
                         SizedBox(width: 8),
-                        Text('O Teu Carro Elétrico', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text('Ajuste Fino de Dados Técnicos (Opcional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       ],
                     ),
+                    const SizedBox(height: 6),
+                    const Text('Preenchido automaticamente ao escolher o carro, mas podes ajustar se o teu tiver consumo diferente:', style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
                     const SizedBox(height: 14),
                     TextField(
                       controller: _nameController,
@@ -477,7 +611,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
                               labelText: 'Capacidade (kWh)',
-                              helperText: 'Ex: 52 kWh no Zoe',
                               prefixIcon: Icon(Icons.battery_5_bar, color: AppTheme.textMuted),
                             ),
                           ),
@@ -488,8 +621,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             controller: _consumptionController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Consumo Médio (kWh/100km)',
-                              helperText: 'Ex: 18.6 kWh/100km',
+                              labelText: 'Consumo (kWh/100km)',
                               prefixIcon: Icon(Icons.speed, color: AppTheme.textMuted),
                             ),
                           ),

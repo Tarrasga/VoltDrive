@@ -281,7 +281,7 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
     sb.writeln('VOLTDRIVE TVDE - BALANÇO MENSAL DE FATURAÇÃO E DESPESAS');
     sb.writeln('Mês / Período:;$monthName');
     sb.writeln('Data de Emissão:;${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
-    sb.writeln('Veículo:;Renault Zoe Z.E. 50 TVDE');
+    sb.writeln('Veículo:;${_profile.name} TVDE');
     sb.writeln('');
 
     // RESUMO GLOBAL
@@ -1743,11 +1743,11 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.ev_station, color: AppTheme.accentGreen, size: 20),
-                  SizedBox(width: 8),
-                  Text('Custos Renault Zoe & Estrada', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Icon(Icons.ev_station, color: AppTheme.accentGreen, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Custos ${_profile.name} & Estrada', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ],
               ),
               const Divider(color: AppTheme.darkBorder, height: 18),
@@ -2137,7 +2137,7 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                   const SizedBox(height: 14),
 
                   // CUSTOS RENAULT ZOE & DESPESAS
-                  const Text('3. Custos Renault Zoe & Despesas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryElectric)),
+                  Text('3. Custos ${_profile.name} & Despesas', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryElectric)),
                   const SizedBox(height: 6),
                   Row(
                     children: [

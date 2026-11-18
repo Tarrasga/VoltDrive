@@ -5,6 +5,7 @@ import '../models/vehicle_profile.dart';
 import '../services/assistant_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/vehicle_picker_modal.dart';
 
 class TripCalculatorScreen extends StatefulWidget {
   const TripCalculatorScreen({super.key});
@@ -457,6 +458,49 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Seletor rápido de carro
+          InkWell(
+            onTap: () async {
+              final updated = await VehiclePickerModal.show(
+                context,
+                currentVehicleName: _profile.name,
+              );
+              if (updated != null && mounted) {
+                setState(() => _profile = updated);
+              }
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              margin: const EdgeInsets.only(top: 4, bottom: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.darkSurface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.primaryElectric.withOpacity(0.35)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.directions_car, color: AppTheme.primaryElectric, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Carro: ${_profile.name}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentGreen.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text('Mudar', style: TextStyle(color: AppTheme.accentGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Calcular Consumo do Carro', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
@@ -523,7 +567,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Retenção da app: ${_profile.platformFeePercent.toStringAsFixed(0)}% | Consumo Zoe: ${_profile.avgConsumptionKwh100} kWh/100km. Podes personalizar estes valores no separador Definições.',
+              'Retenção da app: ${_profile.platformFeePercent.toStringAsFixed(0)}% | Consumo ${_profile.name}: ${_profile.avgConsumptionKwh100} kWh/100km. Podes personalizar estes valores no separador Definições.',
               style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
             ),
           ),
@@ -902,7 +946,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
           ),
           const SizedBox(height: 8),
           const Text(
-            'Lê as ofertas que caem na Uber Driver e Bolt Driver e desenha no topo do ecrã o lucro líquido limpo e €/km para o Renault Zoe.',
+            'Lê as ofertas que caem na Uber Driver e Bolt Driver e desenha no topo do ecrã o lucro líquido limpo e €/km para o teu veículo elétrico.',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 14),
@@ -1497,7 +1541,7 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
                         child: const Text('BOLT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
                       ),
                       const SizedBox(width: 8),
-                      const Text('⚡ VoltDrive • Renault Zoe', style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12)),
+                      Text('⚡ VoltDrive • ${_profile.name}', style: const TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12)),
                     ],
                   ),
                   IconButton(

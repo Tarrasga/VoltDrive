@@ -84,7 +84,7 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
     _isLoadingLoc = false;
 
     final url = loc.googleMapsUrl;
-    final text = '🚨 ALERTA SOS TVDE: Preciso de apoio urgente no Renault Zoe!\n'
+    final text = '🚨 ALERTA SOS TVDE: Preciso de apoio urgente no ${BuddySafetyService.vehicleName}!\n'
         '📍 Coordenadas: ${loc.latitude.toStringAsFixed(5)}, ${loc.longitude.toStringAsFixed(5)} (Precisão: ±${loc.accuracy.toStringAsFixed(0)}m)\n'
         '🗺️ Ver localização em direto: $url';
 
@@ -111,7 +111,7 @@ class _SafetyBuddiesScreenState extends State<SafetyBuddiesScreen> {
   void _shareViaWhatsAppOrSms() {
     final loc = _myLocation;
     final url = loc != null ? loc.googleMapsUrl : 'https://maps.google.com/?q=38.65,-9.15';
-    final text = '🚨 ALERTA SOS TVDE: Preciso de apoio urgente no Renault Zoe!\nMinha localização em direto: $url';
+    final text = '🚨 ALERTA SOS TVDE: Preciso de apoio urgente no ${BuddySafetyService.vehicleName}!\nMinha localização em direto: $url';
 
     showModalBottomSheet(
       context: context,

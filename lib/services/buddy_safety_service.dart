@@ -20,7 +20,8 @@ class BuddySafetyService {
 
   static String teamCode = 'ZOE-PORTUGAL';
   static String teamPassword = '';
-  static String driverName = 'Condutor Zoe';
+  static String driverName = 'Condutor TVDE';
+  static String vehicleName = 'Renault Zoe Z.E. 50';
   static String emergencyPhone = '';
   static bool isDiscreetMode = true;
   static bool isSharingActive = true;
@@ -66,10 +67,18 @@ class BuddySafetyService {
     final prefs = await SharedPreferences.getInstance();
     teamCode = prefs.getString(_keyTeamCode) ?? 'ZOE-PORTUGAL';
     teamPassword = prefs.getString(_keyTeamPassword) ?? '';
-    driverName = prefs.getString(_keyDriverName) ?? 'Condutor Zoe';
+    driverName = prefs.getString(_keyDriverName) ?? 'Condutor TVDE';
     emergencyPhone = prefs.getString(_keyEmergencyPhone) ?? '';
     isDiscreetMode = prefs.getBool(_keyDiscreetMode) ?? true;
     isSharingActive = prefs.getBool(_keySharingActive) ?? true;
+
+    final vehicleJson = prefs.getString('voltdrive_vehicle_profile');
+    if (vehicleJson != null && vehicleJson.isNotEmpty) {
+      try {
+        final Map<String, dynamic> map = jsonDecode(vehicleJson);
+        vehicleName = map['name'] as String? ?? vehicleName;
+      } catch (_) {}
+    }
 
     myDeviceId = prefs.getString('voltdrive_device_id') ?? '';
     if (myDeviceId.isEmpty) {
@@ -244,6 +253,7 @@ class BuddySafetyService {
           'id': myDeviceId,
           'device_id': myDeviceId,
           'name': driverName,
+          'vehicle': vehicleName,
           'has_pass': teamPassword.isNotEmpty,
           'lat': loc.latitude,
           'lng': loc.longitude,
@@ -264,7 +274,7 @@ class BuddySafetyService {
 
   static Future<bool> sendSosAlert(LocationResult loc, {String? customMessage}) async {
     isMySosActive = true;
-    final message = customMessage ?? '🚨 ALERTA SOS: Preciso de apoio imediato!';
+    final message = customMessage ?? '🚨 ALERTA SOS: Preciso de apoio imediato no $vehicleName!';
     final mapsUrl = 'https://maps.google.com/?q=${loc.latitude},${loc.longitude}';
 
     try {
