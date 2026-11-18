@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/app_suggestion.dart';
 import '../services/assistant_service.dart';
 import '../services/storage_service.dart';
+import '../services/update_service.dart';
 import '../theme/app_theme.dart';
 
 class SuggestionsScreen extends StatefulWidget {
@@ -223,19 +224,19 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
                           }
 
                           // Formatar mensagem para WhatsApp
-                          final waMessage = StringBuffer()
-                            ..writeln('💡 *SUGESTÃO / FEEDBACK VOLTDRIVE*')
-                            ..writeln('📂 Categoria: $selectedCategory')
-                            ..writeln('📌 Título: ${suggestion.title}')
-                            ..writeln()
-                            ..writeln('📝 Detalhes:')
-                            ..writeln(suggestion.description);
+                          final waMessage = StringBuffer();
+                          waMessage.writeln('💡 *SUGESTÃO / FEEDBACK VOLTDRIVE*');
+                          waMessage.writeln('📂 Categoria: $selectedCategory');
+                          waMessage.writeln('📌 Título: ${suggestion.title}');
+                          waMessage.writeln();
+                          waMessage.writeln('📝 Detalhes:');
+                          waMessage.writeln(suggestion.description);
                           if (suggestion.author.isNotEmpty) {
-                            ..writeln()
-                            ..writeln('👤 De: ${suggestion.author}');
+                            waMessage.writeln();
+                            waMessage.writeln('👤 De: ${suggestion.author}');
                           }
-                          ..writeln()
-                          ..writeln('⚡ VoltDrive v${UpdateService.currentVersion}');
+                          waMessage.writeln();
+                          waMessage.writeln('⚡ VoltDrive v${UpdateService.currentVersion}');
 
                           await AssistantService.shareWhatsApp(phone: '', message: waMessage.toString());
                         },
@@ -258,19 +259,19 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
   }
 
   void _sendSuggestionViaWhatsApp(AppSuggestion s) async {
-    final waMessage = StringBuffer()
-      ..writeln('💡 *SUGESTÃO VOLTDRIVE*')
-      ..writeln('📂 Categoria: ${s.category}')
-      ..writeln('📌 Título: ${s.title}')
-      ..writeln()
-      ..writeln('📝 Detalhes:')
-      ..writeln(s.description);
+    final waMessage = StringBuffer();
+    waMessage.writeln('💡 *SUGESTÃO VOLTDRIVE*');
+    waMessage.writeln('📂 Categoria: ${s.category}');
+    waMessage.writeln('📌 Título: ${s.title}');
+    waMessage.writeln();
+    waMessage.writeln('📝 Detalhes:');
+    waMessage.writeln(s.description);
     if (s.author.isNotEmpty) {
-      ..writeln()
-      ..writeln('👤 De: ${s.author}');
+      waMessage.writeln();
+      waMessage.writeln('👤 De: ${s.author}');
     }
-    ..writeln()
-    ..writeln('⚡ VoltDrive v${UpdateService.currentVersion}');
+    waMessage.writeln();
+    waMessage.writeln('⚡ VoltDrive v${UpdateService.currentVersion}');
 
     await AssistantService.shareWhatsApp(phone: '', message: waMessage.toString());
   }
