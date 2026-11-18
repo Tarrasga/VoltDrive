@@ -55,6 +55,15 @@ class BuddySafetyService {
   static final ValueNotifier<int> updatesNotifier = ValueNotifier<int>(0);
   static Timer? _pollingTimer;
 
+  // Cliente HTTP reutilizável com keep-alive para poupar RAM e bateria do condutor
+  static HttpClient? _sharedClient;
+  static HttpClient get _httpClient {
+    _sharedClient ??= HttpClient()
+      ..connectionTimeout = const Duration(seconds: 5)
+      ..idleTimeout = const Duration(seconds: 20);
+    return _sharedClient!;
+  }
+
   static void onNativeOverlayDismissed(String sosId) {
     if (sosId.isNotEmpty) {
       dismissedOverlaySosIds.add(sosId);
@@ -237,8 +246,7 @@ class BuddySafetyService {
   static Future<void> broadcastMyLocation(LocationResult loc, {int battery = 80, String status = 'A Rodar'}) async {
     if (!isSharingActive) return;
     try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 4);
+      final client = _httpClient;
 
       final topic = effectiveChannelTopic;
       final url = Uri.parse('https://ntfy.sh');
@@ -278,8 +286,7 @@ class BuddySafetyService {
     final mapsUrl = 'https://maps.google.com/?q=${loc.latitude},${loc.longitude}';
 
     try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 5);
+      final client = _httpClient;
 
       final topic = effectiveChannelTopic;
       final url = Uri.parse('https://ntfy.sh');
@@ -318,8 +325,7 @@ class BuddySafetyService {
   static Future<void> cancelMySos() async {
     isMySosActive = false;
     try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 5);
+      final client = _httpClient;
       final topic = effectiveChannelTopic;
       final url = Uri.parse('https://ntfy.sh');
       final request = await client.postUrl(url);
@@ -342,8 +348,7 @@ class BuddySafetyService {
 
   static Future<void> pollTeamUpdates() async {
     try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 5);
+      final client = _httpClient;
       final topic = effectiveChannelTopic;
       final url = Uri.parse('https://ntfy.sh/$topic/json?poll=1&since=10m');
 

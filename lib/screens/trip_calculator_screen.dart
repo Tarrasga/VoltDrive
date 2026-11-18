@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/trip_calculation.dart';
 import '../models/vehicle_profile.dart';
 import '../services/assistant_service.dart';
+import '../services/feedback_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/vehicle_picker_modal.dart';
@@ -289,13 +290,39 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.lightbulb_outline, color: AppTheme.accentGreen),
-            tooltip: 'Sugestões & Reportar Erros (Bugs)',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SuggestionsScreen()),
+          ValueListenableBuilder<int>(
+            valueListenable: FeedbackService.unreadAdminReportsCount,
+            builder: (ctx, unread, _) {
+              return IconButton(
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.lightbulb_outline, color: AppTheme.accentGreen),
+                    if (FeedbackService.isAdminMode && unread > 0)
+                      Positioned(
+                        right: -4,
+                        top: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.dangerRed,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$unread',
+                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                tooltip: 'Sugestões & Reportar Erros (Bugs)',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SuggestionsScreen()),
+                  );
+                },
               );
             },
           ),

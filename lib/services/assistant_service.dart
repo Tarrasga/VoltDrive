@@ -272,7 +272,7 @@ class AssistantService {
         return res;
       }
     } catch (_) {}
-    return '1.0.51';
+    return '1.0.52';
   }
 
   static Future<void> hideOverlay() async {

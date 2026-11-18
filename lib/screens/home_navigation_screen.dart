@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/assistant_service.dart';
 import '../services/buddy_safety_service.dart';
+import '../services/feedback_service.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
 import 'trip_calculator_screen.dart';
@@ -9,6 +10,7 @@ import 'charging_stations_screen.dart';
 import 'profit_calendar_screen.dart';
 import 'settings_screen.dart';
 import 'safety_buddies_screen.dart';
+import 'suggestions_screen.dart';
 
 class HomeNavigationScreen extends StatefulWidget {
   const HomeNavigationScreen({super.key});
@@ -33,10 +35,48 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
     super.initState();
     BuddySafetyService.updatesNotifier.addListener(_onSafetyUpdate);
     BuddySafetyService.loadConfig();
+    FeedbackService.init();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkUpdatesOnLaunch();
+      _checkAdminFeedbackOnLaunch();
     });
+  }
+
+  void _checkAdminFeedbackOnLaunch() async {
+    await Future.delayed(const Duration(seconds: 4));
+    if (!mounted) return;
+    if (FeedbackService.isAdminMode && FeedbackService.unreadAdminReportsCount.value > 0) {
+      final unread = FeedbackService.unreadAdminReportsCount.value;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.mark_chat_unread, color: AppTheme.accentGreen),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '👑 [Painel do Criador] Tens $unread novo(s) reporte(s) ou sugestão(ões) de condutores!',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppTheme.darkCard,
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'Ver',
+            textColor: AppTheme.accentGreen,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SuggestionsScreen()),
+              );
+            },
+          ),
+        ),
+      );
+    }
   }
 
   @override
