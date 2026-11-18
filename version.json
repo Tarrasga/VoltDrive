@@ -1,7 +1,7 @@
 {
-  "version": "1.0.54",
-  "tag": "v1.0.54",
-  "download_url": "https://github.com/Tarrasga/VoltDrive/releases/download/v1.0.54/VoltDrive.apk",
-  "title": "VoltDrive v1.0.54 (Segurança Máxima & Painel Secreto)",
-  "release_notes": "🔒 Painel de Criador 100% invisível e protegido com chave mestra secreta, leitor de viagens com escopo estrito Uber/Bolt e otimizações gerais."
+  "version": "1.0.55",
+  "tag": "v1.0.55",
+  "download_url": "https://github.com/Tarrasga/VoltDrive/releases/download/v1.0.55/VoltDrive.apk",
+  "title": "VoltDrive v1.0.55 (Configuração Supabase & Estabilidade Cloud)",
+  "release_notes": "☁️ Opção de configuração direta de servidor Supabase próprio, mensagens de diagnóstico amigáveis e melhorias na sincronização."
 }

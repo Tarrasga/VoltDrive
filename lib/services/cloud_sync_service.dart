@@ -34,6 +34,22 @@ class CloudSyncService {
   static bool get isLoggedIn => _accessToken.isNotEmpty && _userId.isNotEmpty;
   static String get userEmail => _userEmail;
   static DateTime? get lastSyncTime => _lastSyncTime;
+  static String get supabaseUrl => _supabaseUrl;
+  static String get anonKey => _anonKey;
+
+  /// Converte erros de rede ou socket numa mensagem amigável em português
+  static String formatErrorMessage(dynamic e) {
+    final s = e.toString().replaceAll('Exception:', '').trim();
+    if (s.contains('Failed host lookup') ||
+        s.contains('SocketException') ||
+        s.contains('errno = 7') ||
+        s.contains('Connection refused') ||
+        s.contains('Network is unreachable') ||
+        s.contains('HandshakeException')) {
+      return 'O servidor da nuvem (Supabase) está em pausa ou inacessível. Reativa o teu projeto no painel supabase.com ou verifica a tua internet.';
+    }
+    return s;
+  }
 
   /// Inicializa o serviço carregando credenciais e tokens guardados
   static Future<void> init() async {
@@ -312,6 +328,13 @@ class CloudSyncService {
       final responseBody = await response.transform(utf8.decoder).join();
       if (responseBody.isEmpty) return {};
       return jsonDecode(responseBody) as Map<String, dynamic>;
+    } on SocketException catch (_) {
+      throw Exception('O servidor da nuvem (Supabase) está em pausa ou sem ligação à internet. Reativa o teu projeto no painel supabase.com.');
+    } catch (e) {
+      if (e.toString().contains('Failed host lookup') || e.toString().contains('errno = 7')) {
+        throw Exception('O servidor da nuvem (Supabase) está em pausa ou sem ligação à internet. Reativa o teu projeto no painel supabase.com.');
+      }
+      rethrow;
     } finally {
       client.close();
     }

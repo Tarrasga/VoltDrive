@@ -248,6 +248,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _showSupabaseConfigDialog() {
+    final urlCtrl = TextEditingController(text: CloudSyncService.supabaseUrl);
+    final keyCtrl = TextEditingController(text: CloudSyncService.anonKey);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        title: const Row(
+          children: [
+            Icon(Icons.tune_rounded, color: AppTheme.primaryElectric, size: 20),
+            SizedBox(width: 8),
+            Text('Servidor Supabase', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Se criaste o teu próprio projeto no Supabase, podes colocar aqui o URL e a chave pública (Anon Key):',
+                style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: urlCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'URL do Projeto Supabase',
+                  hintText: 'https://xxxx.supabase.co',
+                  prefixIcon: Icon(Icons.link),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: keyCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Anon Public Key',
+                  prefixIcon: Icon(Icons.key),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await CloudSyncService.configure(
+                url: CloudSyncService.defaultSupabaseUrl,
+                anonKey: CloudSyncService.defaultAnonKey,
+              );
+              if (mounted) Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Servidor padrão restaurado!'), backgroundColor: AppTheme.primaryElectric),
+              );
+            },
+            child: const Text('Restaurar Padrão', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final url = urlCtrl.text.trim();
+              final key = keyCtrl.text.trim();
+              if (url.isNotEmpty && key.isNotEmpty) {
+                await CloudSyncService.configure(url: url, anonKey: key);
+                if (mounted) Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Configurações do Supabase guardadas!'), backgroundColor: AppTheme.accentGreen),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen, foregroundColor: Colors.black),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showCloudAuthDialog() {
     final emailCtrl = TextEditingController();
     final passCtrl = TextEditingController();
@@ -408,7 +487,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       } catch (e) {
                         setModalState(() {
                           isWorking = false;
-                          errorMsg = e.toString().replaceAll('Exception:', '').trim();
+                          errorMsg = CloudSyncService.formatErrorMessage(e);
                         });
                       }
                     },
@@ -420,6 +499,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: isWorking
                         ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
                         : Text(isLoginTab ? 'Entrar e Sincronizar' : 'Criar Conta e Sincronizar', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 10),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dlgCtx);
+                      _showSupabaseConfigDialog();
+                    },
+                    icon: const Icon(Icons.tune_rounded, size: 14, color: AppTheme.textMuted),
+                    label: const Text('Configurar Servidor Próprio / Chave Supabase', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                   ),
                 ],
               ),
@@ -1062,6 +1150,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           backgroundColor: AppTheme.accentGreen,
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: _showSupabaseConfigDialog,
+                          icon: const Icon(Icons.tune_rounded, size: 14, color: AppTheme.textMuted),
+                          label: const Text('Configurar Servidor Próprio / URL Supabase', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                         ),
                       ),
                     ],
