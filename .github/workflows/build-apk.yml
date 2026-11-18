@@ -102,25 +102,20 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Novo Seletor Interativo de Carros TVDE & Catálogo Completo de Veículos)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Acesso Rápido a Sugestões e Reporte de Bugs no Topo da App)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
           body: |
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
-            ### 🚀 O que há de novo e inovador nesta versão:
-            1. **🚗 Novo Seletor Interativo de Carros TVDE**:
-               - Nova área visual onde podes escolher o teu carro a partir de um catálogo completo de veículos elétricos e TVDE em Portugal.
-               - Pesquisa rápida por texto (ex: Zoe, Tesla, MG4, Dolphin, Leaf, Kona, etc.) e filtros por marca (Renault, Tesla, MG, BYD, Peugeot, Kia, Hyundai, Nissan, Volkswagen, Dacia, etc.).
-               - Aplicação automática da capacidade real da bateria (kWh), consumo médio (kWh/100km) e potência AC (kW) com apenas 1 toque.
-               - Possibilidade de configurar qualquer carro personalizado manualmente se não estiver na lista.
-            2. **⚡ Acesso Rápido na Calculadora e Definições**:
-               - Podes agora ver e mudar de carro diretamente a partir da Calculadora de Viagens com o botão rápido `[ 🚗 Carro: ... (Mudar) ]` sem teres de navegar para outros ecrãs.
-               - Cartão de destaque nas Definições com os dados do teu veículo ativo e atalhos rápidos dos modelos mais comuns.
-            3. **👥 Radar de Segurança e SOS Atualizados com o Teu Carro**:
-               - O radar da equipa e os alertas de emergência SOS transmitem agora o modelo exato do teu carro escolhido em vez do modelo genérico anterior.
-            4. **⏱️ Temporizadores e Histórico TVDE Totalmente Integrados**:
-               - Todos os cálculos de consumo, custos por km e auditorias de horas adaptam-se dinamicamente ao carro selecionado.
+            ### 🚀 O que há de novo nesta versão:
+            1. **💡 Acesso Direto a Sugestões e Reporte de Bugs (Erros)**:
+               - Ícone dedicado `💡` no topo (AppBar) da **Calculadora de Viagens** e das **Definições** para aceder à pasta com 1 clique.
+               - Banner de destaque no topo das Definições: "💡 Pasta de Sugestões & Reportar Bugs" (já não precisas de deslizar até ao fundo da página!).
+               - Ecrã atualizado com categorias claras: `💡 Nova Funcionalidade`, `⚡ Melhoria TVDE`, `🐛 Reportar Erro (Bug)`, `🚗 Carro / Bateria`.
+               - Opção de envio direto para o programador via WhatsApp com mensagem pré-formatada ou arquivo na pasta local.
+            2. **🚗 Seletor de Carros TVDE Otimizado**:
+               - Catálogo completo de veículos elétricos e híbridos em Portugal com pesquisa instantânea e filtros por marca.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

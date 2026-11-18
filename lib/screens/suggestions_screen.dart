@@ -103,8 +103,8 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
                   children: [
                     '💡 Nova Funcionalidade',
                     '⚡ Melhoria TVDE',
-                    '🐛 Reportar Erro',
-                    '🚗 Zoe / Bateria',
+                    '🐛 Reportar Erro (Bug)',
+                    '🚗 Carro / Bateria',
                   ].map((cat) {
                     final isSelected = selectedCategory == cat;
                     return ChoiceChip(
@@ -319,15 +319,15 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
       appBar: AppBar(
         title: const Row(
           children: [
-            Icon(Icons.folder_special, color: AppTheme.primaryElectric, size: 22),
+            Icon(Icons.lightbulb_rounded, color: AppTheme.accentGreen, size: 22),
             SizedBox(width: 8),
-            Text('Pasta de Sugestões'),
+            Text('Sugestões & Reportar Bugs'),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle, color: AppTheme.accentGreen),
-            tooltip: 'Escrever Nova Sugestão',
+            tooltip: 'Escrever Sugestão / Bug',
             onPressed: _openCreateDialog,
           ),
         ],
@@ -360,14 +360,14 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
                           Icon(Icons.auto_awesome, color: AppTheme.accentGreen, size: 22),
                           SizedBox(width: 8),
                           Text(
-                            'Ajuda a Inovar o VoltDrive!',
+                            'Sugestões & Reportar Erros (Bugs)',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Tens alguma ideia de melhoria para o teu dia a dia TVDE, cálculo de consumos Zoe, ou encontraste algum erro? Envia diretamente por WhatsApp para ser incluído nas próximas versões!',
+                        'Encontraste algum bug ou tens uma ideia para melhorar o teu dia a dia TVDE? Envia diretamente para o programador por WhatsApp ou guarda na tua pasta pessoal.',
                         style: TextStyle(color: AppTheme.textPrimary, fontSize: 13, height: 1.4),
                       ),
                       const SizedBox(height: 14),
@@ -377,7 +377,7 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
                           onPressed: _openCreateDialog,
                           icon: const Icon(Icons.edit_note, color: Colors.black),
                           label: const Text(
-                            'Escrever Nova Sugestão / Ideia',
+                            'Escrever Sugestão ou Reportar Bug',
                             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                           ),
                           style: ElevatedButton.styleFrom(

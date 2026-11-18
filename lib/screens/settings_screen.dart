@@ -447,12 +447,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text('Definições do Veículo & Custos'),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.lightbulb_outline, color: AppTheme.accentGreen),
+            tooltip: 'Sugestões & Reportar Erros (Bugs)',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SuggestionsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // BANNER DE TOPO: SUGESTÕES & REPORTAR ERROS (BUGS)
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SuggestionsScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.accentGreen.withOpacity(0.18),
+                      AppTheme.darkCard,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.accentGreen.withOpacity(0.4)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.lightbulb_rounded, color: AppTheme.accentGreen, size: 24),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '💡 Pasta de Sugestões & Reportar Bugs',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Tens uma nova ideia ou encontraste um erro? Toca aqui para enviar.',
+                            style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios, color: AppTheme.accentGreen, size: 14),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
             // CARTÃO PRINCIPAL: ESCOLHER O CARRO TVDE
             Card(
               color: AppTheme.darkCard,
@@ -1084,12 +1145,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Icon(Icons.folder_special, color: AppTheme.accentGreen, size: 20),
                         SizedBox(width: 8),
-                        Text('Pasta de Sugestões para a App', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text('💡 Pasta de Sugestões & Reportar Bugs', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       ],
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Envia novas ideias, melhorias de funções TVDE ou reporta erros diretamente para o programador via WhatsApp ou guarda na tua pasta pessoal.',
+                      'Envia novas ideias, melhorias de funções TVDE ou reporta erros (bugs) diretamente para o programador via WhatsApp ou guarda na tua pasta pessoal.',
                       style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
                     ),
                     const SizedBox(height: 12),
@@ -1103,7 +1164,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           );
                         },
                         icon: const Icon(Icons.lightbulb_outline, size: 18, color: Colors.black),
-                        label: const Text('Abrir Pasta de Sugestões', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
+                        label: const Text('Abrir Pasta de Sugestões & Reportar Bugs', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.accentGreen,
                           padding: const EdgeInsets.symmetric(vertical: 12),

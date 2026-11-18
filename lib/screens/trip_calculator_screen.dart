@@ -6,6 +6,7 @@ import '../services/assistant_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/vehicle_picker_modal.dart';
+import 'suggestions_screen.dart';
 
 class TripCalculatorScreen extends StatefulWidget {
   const TripCalculatorScreen({super.key});
@@ -287,6 +288,18 @@ class _TripCalculatorScreenState extends State<TripCalculatorScreen> with Widget
             Text('Simulador de Viagem TVDE'),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.lightbulb_outline, color: AppTheme.accentGreen),
+            tooltip: 'Sugestões & Reportar Erros (Bugs)',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SuggestionsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
