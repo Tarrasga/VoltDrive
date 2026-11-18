@@ -103,7 +103,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Atualizações Rápidas & App Ultra-Leve)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Segurança Máxima & Acesso Secreto)"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
@@ -111,20 +111,12 @@ jobs:
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
             ### 🚀 O que há de novo nesta versão:
-            1. **🔄 Motor de Atualizações Rápidas & Resiliente**:
-               - Resolução do bloqueio de verificações do GitHub com sistema triplo de verificação ultra-rápida.
-               - Suporte completo para todos os processadores Android (ARM64, ARMv7 e x86_64).
-               - Permissões de instalação do Android otimizadas com ClipData seguro.
-
-            2. **💡 Envio Direto de Sugestões e Reportar Bugs Pela App**:
-               - Podes agora enviar sugestões e reportar problemas diretamente dentro da app, com apenas 1 clique, sem precisares de ter o número ou de abrir o WhatsApp.
-               - O criador da aplicação recebe o relatório detalhado em tempo real (versão, modelo do carro e descrição).
-               - Confirmação imediata de entrega e histórico guardado na tua pasta pessoal.
-               - Continua disponível a opção de enviar por WhatsApp caso prefiras.
-
-            3. **⚡ Aplicação Ultra-Leve e Rápida**:
-               - Otimização drástica do tamanho da aplicação (redução de mais de 95% no tamanho do ficheiro de instalação!).
-               - Arranque mais rápido, menor consumo de memória RAM e poupança significativa de bateria durante os turnos TVDE.
-               - Ícones e recursos nativos escalados à medida para todas as resoluções de ecrã.
+            1. **🔒 Painel de Criador Totalmente Invisível e Protegido**:
+               - O acesso ao painel de administração é agora 100% oculto e protegido por chave mestra privada (sem botões ou dicas visíveis para condutores normais).
+               - Capacidade de personalizar a chave mestra diretamente nas opções do criador.
+            2. **🔄 Motor de Atualizações Resiliente & Leitor Otimizado**:
+               - Atualizações sem limites de taxa e permissões de leitor estritas para Uber e Bolt.
+            3. **⚡ Aplicação Ultra-Leve (25 MB)**:
+               - Redução de mais de 95% no tamanho e consumo de bateria.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

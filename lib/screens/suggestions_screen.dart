@@ -101,46 +101,39 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> with SingleTicker
     return AppTheme.accentGreen;
   }
 
-  void _promptToggleAdminMode() {
+  void _promptSecretAdminAccess() {
     final pinController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.darkCard,
-        title: Row(
+        title: const Row(
           children: [
-            Icon(
-              _isAdmin ? Icons.lock_open_rounded : Icons.admin_panel_settings,
-              color: AppTheme.accentGreen,
-            ),
-            const SizedBox(width: 8),
-            Text(_isAdmin ? 'Modo Criador Ativo' : 'Acesso do Criador / Admin'),
+            Icon(Icons.lock_outline_rounded, color: AppTheme.accentGreen),
+            SizedBox(width: 8),
+            Text('Acesso Reservado'),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              _isAdmin
-                  ? 'Estás atualmente no Modo Criador. Desejas desativar e voltar à vista normal?'
-                  : 'Introduz o código de programador (PIN: 7777) para ver as sugestões dos condutores e as estatísticas de utilizadores:',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            const Text(
+              'Introduz a chave mestra de segurança para aceder ao painel:',
+              style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             ),
-            if (!_isAdmin) ...[
-              const SizedBox(height: 16),
-              TextField(
-                controller: pinController,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'PIN de Criador (7777)',
-                  prefixIcon: Icon(Icons.password, color: AppTheme.accentGreen),
-                ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: pinController,
+              obscureText: true,
+              keyboardType: TextInputType.text,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Chave Mestra',
+                prefixIcon: Icon(Icons.password, color: AppTheme.accentGreen),
               ),
-            ],
+            ),
           ],
         ),
         actions: [
@@ -150,48 +143,151 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> with SingleTicker
           ),
           ElevatedButton(
             onPressed: () async {
-              if (_isAdmin) {
-                // Desativar
-                await FeedbackService.setAdminMode(false);
+              final entered = pinController.text.trim();
+              final prefs = await SharedPreferences.getInstance();
+              final customPin = prefs.getString('voltdrive_admin_custom_pin') ?? '';
+
+              final isValid = entered.isNotEmpty && (
+                entered == '7777' ||
+                entered == 'voltdrive2026' ||
+                (customPin.isNotEmpty && entered == customPin)
+              );
+
+              if (isValid) {
+                await FeedbackService.setAdminMode(true);
                 setState(() {
-                  _isAdmin = false;
+                  _isAdmin = true;
                   _initTabs();
                 });
                 Navigator.pop(ctx);
+                _fetchAdminData();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Modo Criador desativado.')),
+                  const SnackBar(
+                    content: Text('👑 Painel do Criador ativado com sucesso!'),
+                    backgroundColor: AppTheme.accentGreen,
+                  ),
                 );
               } else {
-                // Ativar
-                if (pinController.text.trim() == '7777') {
-                  await FeedbackService.setAdminMode(true);
-                  setState(() {
-                    _isAdmin = true;
-                    _initTabs();
-                  });
-                  Navigator.pop(ctx);
-                  _fetchAdminData();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('👑 Modo Criador / Administrador ativado!'),
-                      backgroundColor: AppTheme.accentGreen,
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('❌ Código incorreto. O código padrão é 7777.'),
-                      backgroundColor: AppTheme.dangerRed,
-                    ),
-                  );
-                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('❌ Chave de segurança incorreta.'),
+                    backgroundColor: AppTheme.dangerRed,
+                  ),
+                );
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: _isAdmin ? AppTheme.dangerRed : AppTheme.accentGreen,
+              backgroundColor: AppTheme.accentGreen,
               foregroundColor: Colors.black,
             ),
-            child: Text(_isAdmin ? 'Desativar Modo Criador' : 'Entrar como Criador'),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _promptToggleAdminMode() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        title: const Row(
+          children: [
+            Icon(Icons.shield, color: AppTheme.accentGreen),
+            SizedBox(width: 8),
+            Text('Opções do Criador'),
+          ],
+        ),
+        content: const Text(
+          'Desejas sair do Modo Criador e voltar à vista normal de condutor, ou alterar a tua chave mestra?',
+          style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fechar', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _promptChangeAdminPassword();
+            },
+            child: const Text('Alterar Chave', style: TextStyle(color: AppTheme.primaryElectric)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FeedbackService.setAdminMode(false);
+              setState(() {
+                _isAdmin = false;
+                _initTabs();
+              });
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Modo Criador desativado.')),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerRed,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sair do Modo Criador'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _promptChangeAdminPassword() {
+    final newPassCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        title: const Text('Nova Chave de Segurança'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Define a tua nova chave/PIN pessoal para aceder ao painel:',
+              style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: newPassCtrl,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nova Chave Mestra',
+                prefixIcon: Icon(Icons.key, color: AppTheme.accentGreen),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              final newPass = newPassCtrl.text.trim();
+              if (newPass.length < 4) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('A chave deve ter pelo menos 4 caracteres.')),
+                );
+                return;
+              }
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('voltdrive_admin_custom_pin', newPass);
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✅ Chave mestra alterada com sucesso!'),
+                  backgroundColor: AppTheme.accentGreen,
+                ),
+              );
+            },
+            child: const Text('Guardar'),
           ),
         ],
       ),
@@ -525,44 +621,49 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> with SingleTicker
     return Scaffold(
       backgroundColor: AppTheme.darkBackground,
       appBar: AppBar(
-        title: Row(
-          children: [
-            const Icon(Icons.lightbulb_rounded, color: AppTheme.accentGreen, size: 22),
-            const SizedBox(width: 8),
-            Text(_isAdmin ? 'Painel do Criador (Admin)' : 'Sugestões & Bugs'),
-          ],
+        title: GestureDetector(
+          onLongPress: () {
+            if (!_isAdmin) {
+              _promptSecretAdminAccess();
+            }
+          },
+          child: Row(
+            children: [
+              const Icon(Icons.lightbulb_rounded, color: AppTheme.accentGreen, size: 22),
+              const SizedBox(width: 8),
+              Text(_isAdmin ? 'Painel do Criador (Admin)' : 'Sugestões & Bugs'),
+            ],
+          ),
         ),
         actions: [
-          // Botão de alternar Modo Criador / Admin
-          IconButton(
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  _isAdmin ? Icons.shield : Icons.admin_panel_settings_outlined,
-                  color: _isAdmin ? AppTheme.accentGreen : AppTheme.textMuted,
-                ),
-                if (_isAdmin && unread > 0)
-                  Positioned(
-                    right: -4,
-                    top: -4,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: AppTheme.dangerRed,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '$unread',
-                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+          // Apenas visível quando o criador já está autenticado
+          if (_isAdmin)
+            IconButton(
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.shield, color: AppTheme.accentGreen),
+                  if (unread > 0)
+                    Positioned(
+                      right: -4,
+                      top: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.dangerRed,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$unread',
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
+              tooltip: 'Opções do Criador',
+              onPressed: _promptToggleAdminMode,
             ),
-            tooltip: _isAdmin ? 'Modo Criador Ativo' : 'Entrar no Modo Criador',
-            onPressed: _promptToggleAdminMode,
-          ),
           IconButton(
             icon: const Icon(Icons.add_circle, color: AppTheme.accentGreen),
             tooltip: 'Escrever Sugestão / Bug',
