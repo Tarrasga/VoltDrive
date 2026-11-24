@@ -2,8 +2,9 @@ class DailyShift {
   final String id;
   final DateTime date;
   final double driverEarnings; // Dinheiro ganho que fica para o condutor ("o que fica para mim")
-  final double uberGross;      // Mantido para compatibilidade de registos antigos
-  final double boltGross;      // Mantido para compatibilidade de registos antigos
+  final double uberGross;      // Faturação / ganhos Uber
+  final double boltGross;      // Faturação / ganhos Bolt
+  final double otherEarnings;   // Faturação / viagens particulares ou outras empresas
   final double tips;           // Gorjetas / extras recebidos
   final double startKm;        // Km no início do turno (odómetro)
   final double endKm;          // Km no fim do turno (odómetro)
@@ -25,6 +26,7 @@ class DailyShift {
     this.driverEarnings = 0.0,
     this.uberGross = 0.0,
     this.boltGross = 0.0,
+    this.otherEarnings = 0.0,
     this.tips = 0.0,
     this.startKm = 0.0,
     this.endKm = 0.0,
@@ -47,20 +49,23 @@ class DailyShift {
     return _manualTotalKm;
   }
 
-  // Faturação / Ganho Total antes de despesas (se tiver driverEarnings usa direto; caso contrário histórico Uber+Bolt+Tips)
+  // Faturação / Ganho Total antes de despesas
   double get totalGross {
+    if (uberGross > 0 || boltGross > 0 || otherEarnings > 0) {
+      return uberGross + boltGross + otherEarnings + tips;
+    }
     if (driverEarnings > 0) {
       return driverEarnings + tips;
     }
-    return uberGross + boltGross + tips;
+    return tips;
   }
 
   // Faturação de plataformas sujeita a taxas (histórico)
-  double get appsGross => uberGross + boltGross;
+  double get appsGross => uberGross + boltGross + otherEarnings;
 
   // Valor retido pelas plataformas (ex: 25%) no histórico
   double get platformFeeAmount {
-    if (driverEarnings > 0) return 0.0;
+    if (driverEarnings > 0 || uberGross > 0 || boltGross > 0 || otherEarnings > 0) return 0.0;
     return appsGross * (platformFeePercent / 100.0);
   }
 
@@ -69,16 +74,19 @@ class DailyShift {
 
   // Comissão de parceiro/frota (se for o caso no histórico)
   double get fleetCommissionAmount {
-    if (driverEarnings > 0) return 0.0;
+    if (driverEarnings > 0 || uberGross > 0 || boltGross > 0 || otherEarnings > 0) return 0.0;
     return afterPlatform * (fleetCommissionPercent / 100.0);
   }
 
   // Faturação líquida que entra no bolso do condutor pelas viagens
   double get netRevenue {
+    if (uberGross > 0 || boltGross > 0 || otherEarnings > 0) {
+      return uberGross + boltGross + otherEarnings + tips;
+    }
     if (driverEarnings > 0) {
       return driverEarnings + tips;
     }
-    return (afterPlatform - fleetCommissionAmount) + tips;
+    return tips;
   }
 
   // Despesas operacionais totais do dia
@@ -105,6 +113,7 @@ class DailyShift {
     'driverEarnings': driverEarnings,
     'uberGross': uberGross,
     'boltGross': boltGross,
+    'otherEarnings': otherEarnings,
     'tips': tips,
     'startKm': startKm,
     'endKm': endKm,
@@ -125,6 +134,7 @@ class DailyShift {
     driverEarnings: (json['driverEarnings'] as num?)?.toDouble() ?? 0.0,
     uberGross: (json['uberGross'] as num?)?.toDouble() ?? 0.0,
     boltGross: (json['boltGross'] as num?)?.toDouble() ?? 0.0,
+    otherEarnings: (json['otherEarnings'] as num?)?.toDouble() ?? 0.0,
     tips: (json['tips'] as num?)?.toDouble() ?? 0.0,
     startKm: (json['startKm'] as num?)?.toDouble() ?? 0.0,
     endKm: (json['endKm'] as num?)?.toDouble() ?? 0.0,

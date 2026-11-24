@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/daily_shift.dart';
 import '../models/vehicle_profile.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
+import 'settings_screen.dart';
 
 class DailyShiftScreen extends StatefulWidget {
   const DailyShiftScreen({super.key});
@@ -13,6 +15,9 @@ class DailyShiftScreen extends StatefulWidget {
 
 class _DailyShiftScreenState extends State<DailyShiftScreen> {
   final TextEditingController _earningsController = TextEditingController();
+  final TextEditingController _uberController = TextEditingController();
+  final TextEditingController _boltController = TextEditingController();
+  final TextEditingController _otherEarningsController = TextEditingController();
   final TextEditingController _tipsController = TextEditingController();
   final TextEditingController _startKmController = TextEditingController();
   final TextEditingController _endKmController = TextEditingController();
@@ -27,6 +32,12 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
   VehicleProfile _profile = VehicleProfile();
   bool _isLoading = true;
 
+  bool _splitEarningsByPlatform = false;
+  bool _enableUber = true;
+  bool _enableBolt = true;
+  bool _enableTips = true;
+  bool _enableOther = true;
+
   @override
   void initState() {
     super.initState();
@@ -36,6 +47,9 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
   @override
   void dispose() {
     _earningsController.dispose();
+    _uberController.dispose();
+    _boltController.dispose();
+    _otherEarningsController.dispose();
     _tipsController.dispose();
     _startKmController.dispose();
     _endKmController.dispose();
@@ -51,6 +65,7 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
 
   Future<void> _loadProfile() async {
     final prof = await StorageService.loadVehicleProfile();
+    final prefs = await SharedPreferences.getInstance();
     final todaySession = await StorageService.getDrivingSessionForDate(DateTime.now());
     if (todaySession != null) {
       if (_startKmController.text.isEmpty && (todaySession.startKm ?? 0) > 0) {
@@ -68,6 +83,11 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
     }
     setState(() {
       _profile = prof;
+      _splitEarningsByPlatform = prefs.getBool('voltdrive_split_earnings_by_platform') ?? false;
+      _enableUber = prefs.getBool('voltdrive_enable_uber') ?? true;
+      _enableBolt = prefs.getBool('voltdrive_enable_bolt') ?? true;
+      _enableTips = prefs.getBool('voltdrive_enable_tips') ?? true;
+      _enableOther = prefs.getBool('voltdrive_enable_other') ?? true;
       _isLoading = false;
     });
   }
@@ -80,8 +100,27 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
     }
   }
 
+  void _updatePlatformEarningsSum() {
+    double total = 0.0;
+    if (_enableUber) {
+      total += double.tryParse(_uberController.text.replaceAll(',', '.')) ?? 0.0;
+    }
+    if (_enableBolt) {
+      total += double.tryParse(_boltController.text.replaceAll(',', '.')) ?? 0.0;
+    }
+    if (_enableOther) {
+      total += double.tryParse(_otherEarningsController.text.replaceAll(',', '.')) ?? 0.0;
+    }
+    _earningsController.text = total > 0 ? total.toStringAsFixed(2) : '';
+  }
+
   DailyShift _calculateCurrentShift() {
-    final earnings = double.tryParse(_earningsController.text.replaceAll(',', '.')) ?? 0.0;
+    final uber = double.tryParse(_uberController.text.replaceAll(',', '.')) ?? 0.0;
+    final bolt = double.tryParse(_boltController.text.replaceAll(',', '.')) ?? 0.0;
+    final other = double.tryParse(_otherEarningsController.text.replaceAll(',', '.')) ?? 0.0;
+    final manualEarnings = double.tryParse(_earningsController.text.replaceAll(',', '.')) ?? 0.0;
+    final earnings = _splitEarningsByPlatform ? (uber + bolt + other) : manualEarnings;
+
     final tips = double.tryParse(_tipsController.text.replaceAll(',', '.')) ?? 0.0;
     final startKm = double.tryParse(_startKmController.text.replaceAll(',', '.')) ?? 0.0;
     final endKm = double.tryParse(_endKmController.text.replaceAll(',', '.')) ?? 0.0;
@@ -97,7 +136,23 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       date: DateTime.now(),
       driverEarnings: earnings,
+      uberGross: uber,
+      boltGross: bolt,
+      otherEarnings: other,
       tips: tips,
+      startKm: startKm,
+      endKm: endKm,
+      totalKm: km,
+      hoursWorked: hours,
+      chargingCost: charging,
+      chargingKwh: kwh,
+      tollsCost: tolls,
+      otherExpenses: others,
+      notes: _notesController.text,
+      platformFeePercent: _profile.platformFeePercent,
+      fleetCommissionPercent: _profile.fleetCommissionPercent,
+    );
+  }
       startKm: startKm,
       endKm: endKm,
       totalKm: km,
@@ -232,49 +287,194 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
 
             const SizedBox(height: 16),
 
-            // DINHEIRO QUE FICA PARA MIM (SIMPLIFICADO)
+            // DINHEIRO GANHO NO TURNO (COM DISCRIMINAÇÃO POR PLATAFORMAS OU SIMPLIFICADO)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.payments_outlined, color: AppTheme.accentGreen, size: 20),
-                        SizedBox(width: 8),
-                        Text('Dinheiro Ganho no Turno', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Row(
+                          children: [
+                            Icon(
+                              _splitEarningsByPlatform ? Icons.business_center_outlined : Icons.payments_outlined,
+                              color: AppTheme.accentGreen,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _splitEarningsByPlatform ? 'Ganhos por Empresa / Plataforma' : 'Dinheiro Ganho no Turno',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                          ],
+                        ),
+                        InkWell(
+                          onTap: () async {
+                            await Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                            await _loadProfile();
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryElectric.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.tune, size: 13, color: AppTheme.primaryElectric),
+                                SizedBox(width: 4),
+                                Text('Definições', style: TextStyle(color: AppTheme.primaryElectric, fontSize: 11, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Insere o valor real que fica para ti (já sem comissões)',
-                      style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                    const SizedBox(height: 6),
+                    Text(
+                      _splitEarningsByPlatform
+                          ? 'Insere os valores de cada empresa. A app soma o total automaticamente.'
+                          : 'Insere o valor real que fica para ti (já sem comissões)',
+                      style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
                     ),
                     const SizedBox(height: 14),
-                    TextField(
-                      controller: _earningsController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Dinheiro que fica para mim (€)',
-                        hintText: '0.00',
-                        prefixIcon: Icon(Icons.account_balance_wallet_outlined, color: AppTheme.accentGreen),
-                        helperText: 'Total líquido ganho com as viagens do dia',
+
+                    if (_splitEarningsByPlatform) ...[
+                      // Resumo Dinâmico com a Soma Automática
+                      Builder(builder: (_) {
+                        final u = double.tryParse(_uberController.text.replaceAll(',', '.')) ?? 0.0;
+                        final b = double.tryParse(_boltController.text.replaceAll(',', '.')) ?? 0.0;
+                        final o = double.tryParse(_otherEarningsController.text.replaceAll(',', '.')) ?? 0.0;
+                        final t = double.tryParse(_tipsController.text.replaceAll(',', '.')) ?? 0.0;
+                        final total = u + b + o + t;
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          margin: const EdgeInsets.only(bottom: 14),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppTheme.accentGreen.withOpacity(0.15),
+                                AppTheme.darkCard,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.accentGreen.withOpacity(0.5)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.calculate_outlined, color: AppTheme.accentGreen, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Total Faturado no Turno:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                                ],
+                              ),
+                              Text(
+                                '${total.toStringAsFixed(2)} €',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppTheme.accentGreen),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+
+                      if (_enableUber) ...[
+                        TextField(
+                          controller: _uberController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          decoration: const InputDecoration(
+                            labelText: 'Uber (€)',
+                            hintText: '0.00',
+                            prefixIcon: Icon(Icons.directions_car, color: AppTheme.accentGreen),
+                          ),
+                          onChanged: (_) {
+                            _updatePlatformEarningsSum();
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+
+                      if (_enableBolt) ...[
+                        TextField(
+                          controller: _boltController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          decoration: const InputDecoration(
+                            labelText: 'Bolt (€)',
+                            hintText: '0.00',
+                            prefixIcon: Icon(Icons.bolt, color: AppTheme.warningAmber),
+                          ),
+                          onChanged: (_) {
+                            _updatePlatformEarningsSum();
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+
+                      if (_enableOther) ...[
+                        TextField(
+                          controller: _otherEarningsController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          decoration: const InputDecoration(
+                            labelText: 'Outras / Particulares (€)',
+                            hintText: '0.00',
+                            prefixIcon: Icon(Icons.receipt_long, color: Colors.tealAccent),
+                          ),
+                          onChanged: (_) {
+                            _updatePlatformEarningsSum();
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+
+                      if (_enableTips) ...[
+                        TextField(
+                          controller: _tipsController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(
+                            labelText: 'Gorjetas / Extras (€)',
+                            hintText: '0.00',
+                            prefixIcon: Icon(Icons.volunteer_activism, color: AppTheme.primaryElectric),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                    ] else ...[
+                      TextField(
+                        controller: _earningsController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Dinheiro que fica para mim (€)',
+                          hintText: '0.00',
+                          prefixIcon: Icon(Icons.account_balance_wallet_outlined, color: AppTheme.accentGreen),
+                          helperText: 'Total líquido ganho com as viagens do dia',
+                        ),
+                        onChanged: (_) => setState(() {}),
                       ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _tipsController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Gorjetas / Extras (€) (opcional)',
-                        hintText: '0.00',
-                        prefixIcon: Icon(Icons.volunteer_activism, color: AppTheme.primaryElectric),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _tipsController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Gorjetas / Extras (€) (opcional)',
+                          hintText: '0.00',
+                          prefixIcon: Icon(Icons.volunteer_activism, color: AppTheme.primaryElectric),
+                        ),
+                        onChanged: (_) => setState(() {}),
                       ),
-                      onChanged: (_) => setState(() {}),
-                    ),
+                    ],
                   ],
                 ),
               ),

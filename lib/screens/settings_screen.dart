@@ -30,6 +30,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _fleetFeeController = TextEditingController();
   final TextEditingController _targetProfitController = TextEditingController();
 
+  bool _splitEarningsByPlatform = false;
+  bool _enableUber = true;
+  bool _enableBolt = true;
+  bool _enableTips = true;
+  bool _enableOther = true;
+
   bool _isLoading = true;
 
   @override
@@ -40,6 +46,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadProfile() async {
     final profile = await StorageService.loadVehicleProfile();
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
       _nameController.text = profile.name;
       _batteryController.text = profile.batteryCapacityKwh.toString();
@@ -49,6 +56,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _platformFeeController.text = profile.platformFeePercent.toString();
       _fleetFeeController.text = profile.fleetCommissionPercent.toString();
       _targetProfitController.text = profile.targetDailyProfit.toString();
+
+      _splitEarningsByPlatform = prefs.getBool('voltdrive_split_earnings_by_platform') ?? false;
+      _enableUber = prefs.getBool('voltdrive_enable_uber') ?? true;
+      _enableBolt = prefs.getBool('voltdrive_enable_bolt') ?? true;
+      _enableTips = prefs.getBool('voltdrive_enable_tips') ?? true;
+      _enableOther = prefs.getBool('voltdrive_enable_other') ?? true;
+
       _isLoading = false;
     });
   }
@@ -92,6 +106,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     await StorageService.saveVehicleProfile(profile);
     await AssistantService.syncSettings(profile);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('voltdrive_split_earnings_by_platform', _splitEarningsByPlatform);
+    await prefs.setBool('voltdrive_enable_uber', _enableUber);
+    await prefs.setBool('voltdrive_enable_bolt', _enableBolt);
+    await prefs.setBool('voltdrive_enable_tips', _enableTips);
+    await prefs.setBool('voltdrive_enable_other', _enableOther);
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('🚗 $name selecionado e guardado!'), backgroundColor: AppTheme.accentGreen),
@@ -112,6 +134,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     await StorageService.saveVehicleProfile(profile);
     await AssistantService.syncSettings(profile);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('voltdrive_split_earnings_by_platform', _splitEarningsByPlatform);
+    await prefs.setBool('voltdrive_enable_uber', _enableUber);
+    await prefs.setBool('voltdrive_enable_bolt', _enableBolt);
+    await prefs.setBool('voltdrive_enable_tips', _enableTips);
+    await prefs.setBool('voltdrive_enable_other', _enableOther);
+
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -922,6 +952,126 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             const SizedBox(height: 18),
+
+            // PLATAFORMAS & FATURAÇÃO NO TURNO
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.business_center_outlined, color: AppTheme.primaryElectric, size: 20),
+                            SizedBox(width: 8),
+                            Text('Plataformas nos Turnos', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ],
+                        ),
+                        Switch(
+                          value: _splitEarningsByPlatform,
+                          activeColor: AppTheme.accentGreen,
+                          onChanged: (val) async {
+                            setState(() => _splitEarningsByPlatform = val);
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('voltdrive_split_earnings_by_platform', val);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Ativa para introduzir os valores da Uber, Bolt, Gorjetas e Outras separadamente nos turnos diários. A app calcula o total automaticamente.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    ),
+                    if (_splitEarningsByPlatform) ...[
+                      const Divider(height: 24),
+                      const Text(
+                        'Escolhe as opções que queres ver no turno:',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(height: 8),
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Row(
+                          children: [
+                            Icon(Icons.directions_car, color: AppTheme.accentGreen, size: 18),
+                            SizedBox(width: 8),
+                            Text('Uber'),
+                          ],
+                        ),
+                        value: _enableUber,
+                        activeColor: AppTheme.accentGreen,
+                        onChanged: (val) async {
+                          setState(() => _enableUber = val ?? true);
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('voltdrive_enable_uber', _enableUber);
+                        },
+                      ),
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Row(
+                          children: [
+                            Icon(Icons.bolt, color: AppTheme.warningAmber, size: 18),
+                            SizedBox(width: 8),
+                            Text('Bolt'),
+                          ],
+                        ),
+                        value: _enableBolt,
+                        activeColor: AppTheme.warningAmber,
+                        onChanged: (val) async {
+                          setState(() => _enableBolt = val ?? true);
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('voltdrive_enable_bolt', _enableBolt);
+                        },
+                      ),
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Row(
+                          children: [
+                            Icon(Icons.volunteer_activism, color: AppTheme.primaryElectric, size: 18),
+                            SizedBox(width: 8),
+                            Text('Gorjetas / Extras'),
+                          ],
+                        ),
+                        value: _enableTips,
+                        activeColor: AppTheme.primaryElectric,
+                        onChanged: (val) async {
+                          setState(() => _enableTips = val ?? true);
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('voltdrive_enable_tips', _enableTips);
+                        },
+                      ),
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Row(
+                          children: [
+                            Icon(Icons.receipt_long, color: Colors.tealAccent, size: 18),
+                            SizedBox(width: 8),
+                            Text('Outras / Viagens Particulares'),
+                          ],
+                        ),
+                        value: _enableOther,
+                        activeColor: Colors.tealAccent,
+                        onChanged: (val) async {
+                          setState(() => _enableOther = val ?? true);
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('voltdrive_enable_other', _enableOther);
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
 
             // METAS & RITMO DIÁRIO TVDE
             Card(

@@ -1714,7 +1714,14 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                 ],
               ),
               const Divider(color: AppTheme.darkBorder, height: 18),
-              if (shift.driverEarnings > 0) ...[
+              if (shift.uberGross > 0 || shift.boltGross > 0 || shift.otherEarnings > 0) ...[
+                if (shift.uberGross > 0) _buildDetailRow('Uber', '${shift.uberGross.toStringAsFixed(2)} €'),
+                if (shift.boltGross > 0) _buildDetailRow('Bolt', '${shift.boltGross.toStringAsFixed(2)} €'),
+                if (shift.otherEarnings > 0) _buildDetailRow('Outras / Particulares', '${shift.otherEarnings.toStringAsFixed(2)} €'),
+                if (shift.tips > 0)
+                  _buildDetailRow('Gorjetas Recebidas', '+${shift.tips.toStringAsFixed(2)} €', color: AppTheme.accentGreen),
+                _buildDetailRow('Total Faturado no Turno', '${shift.totalGross.toStringAsFixed(2)} €', isBold: true),
+              ] else if (shift.driverEarnings > 0) ...[
                 _buildDetailRow('Dinheiro Ganho (para mim)', '${shift.driverEarnings.toStringAsFixed(2)} €', isBold: true),
                 if (shift.tips > 0)
                   _buildDetailRow('Gorjetas Recebidas', '+${shift.tips.toStringAsFixed(2)} €', color: AppTheme.accentGreen),
@@ -2210,6 +2217,9 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                         id: existingShift?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
                         date: date,
                         driverEarnings: earnings,
+                        uberGross: existingShift?.uberGross ?? 0.0,
+                        boltGross: existingShift?.boltGross ?? 0.0,
+                        otherEarnings: existingShift?.otherEarnings ?? 0.0,
                         tips: tips,
                         startKm: startKm,
                         endKm: endKm,

@@ -252,9 +252,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    s.driverEarnings > 0
-                                        ? 'Ganho: ${s.driverEarnings.toStringAsFixed(2)} € ${s.tips > 0 ? "| Gorjetas: +${s.tips.toStringAsFixed(2)} €" : ""}'
-                                        : 'Uber: ${s.uberGross.toStringAsFixed(0)}€ | Bolt: ${s.boltGross.toStringAsFixed(0)}€ | Gorjetas: ${s.tips.toStringAsFixed(1)}€',
+                                    (s.uberGross > 0 || s.boltGross > 0 || s.otherEarnings > 0)
+                                        ? '${s.uberGross > 0 ? "Uber: ${s.uberGross.toStringAsFixed(0)}€ " : ""}${s.boltGross > 0 ? "| Bolt: ${s.boltGross.toStringAsFixed(0)}€ " : ""}${s.otherEarnings > 0 ? "| Outras: ${s.otherEarnings.toStringAsFixed(0)}€ " : ""}${s.tips > 0 ? "| Gorjetas: ${s.tips.toStringAsFixed(1)}€" : ""}'.trim()
+                                        : 'Ganho: ${s.driverEarnings.toStringAsFixed(2)} € ${s.tips > 0 ? "| Gorjetas: +${s.tips.toStringAsFixed(2)} €" : ""}',
                                     style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
                                   ),
                                   Text(
