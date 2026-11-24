@@ -32,6 +32,32 @@ class AdminIncomingReport {
     required this.timestamp,
     required this.priority,
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'description': description,
+    'category': category,
+    'author': author,
+    'vehicleName': vehicleName,
+    'appVersion': appVersion,
+    'deviceId': deviceId,
+    'timestamp': timestamp.toIso8601String(),
+    'priority': priority,
+  };
+
+  factory AdminIncomingReport.fromJson(Map<String, dynamic> json) => AdminIncomingReport(
+    id: json['id'] as String? ?? '',
+    title: json['title'] as String? ?? '',
+    description: json['description'] as String? ?? '',
+    category: json['category'] as String? ?? '',
+    author: json['author'] as String? ?? '',
+    vehicleName: json['vehicleName'] as String? ?? '',
+    appVersion: json['appVersion'] as String? ?? '',
+    deviceId: json['deviceId'] as String? ?? '',
+    timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ?? DateTime.now(),
+    priority: (json['priority'] as num?)?.toInt() ?? 3,
+  );
 }
 
 class TelemetryStats {
@@ -193,95 +219,120 @@ class FeedbackService {
   // RECEÇÃO & CAIXA DE ENTRADA (ADMIN / CRIADOR)
   // ==========================================
 
-  /// Consulta os relatórios recebidos nos últimos 30 dias
+  static const String _keySavedIncomingReports = 'voltdrive_saved_incoming_reports';
+  static const String _keySavedDevicesRegistry = 'voltdrive_saved_devices_registry';
+
+  /// Consulta os relatórios recebidos e mantém histórico local permanente
   static Future<List<AdminIncomingReport>> fetchIncomingReports() async {
     try {
-      final url = Uri.parse('https://ntfy.sh/$inboxTopic/json?poll=1&since=30d');
-      final request = await _client.getUrl(url);
-      final response = await request.close();
-      if (response.statusCode != 200) return cachedIncomingReports;
+      final prefs = await SharedPreferences.getInstance();
 
-      final body = await response.transform(utf8.decoder).join();
-      final lines = body.split('\n');
-
-      final List<AdminIncomingReport> list = [];
-
-      for (final line in lines) {
-        if (line.trim().isEmpty) continue;
+      // 1. Carregar relatórios já guardados localmente
+      final Map<String, AdminIncomingReport> reportMap = {};
+      final savedJson = prefs.getString(_keySavedIncomingReports);
+      if (savedJson != null && savedJson.isNotEmpty) {
         try {
-          final event = jsonDecode(line);
-          if (event['event'] != 'message') continue;
-
-          final id = event['id'] as String? ?? '';
-          final rawTitle = event['title'] as String? ?? 'Sugestão sem título';
-          final rawMsg = event['message'] as String? ?? '';
-          final priority = (event['priority'] as num?)?.toInt() ?? 3;
-          final timeSeconds = (event['time'] as num?)?.toInt() ?? 0;
-          final dt = timeSeconds > 0
-              ? DateTime.fromMillisecondsSinceEpoch(timeSeconds * 1000)
-              : DateTime.now();
-
-          // Extrair categoria e título limpo
-          String category = '💡 Nova Funcionalidade';
-          String title = rawTitle;
-          if (rawTitle.contains('[Bug]') || rawTitle.contains('🐛')) {
-            category = '🐛 Reportar Erro (Bug)';
-            title = rawTitle.replaceAll('🐛', '').replaceAll('[Bug]', '').trim();
-          } else if (rawTitle.contains('[Melhoria]') || rawTitle.contains('⚡')) {
-            category = '⚡ Melhoria TVDE';
-            title = rawTitle.replaceAll('⚡', '').replaceAll('[Melhoria]', '').trim();
-          } else {
-            category = '💡 Nova Funcionalidade';
-            title = rawTitle.replaceAll('💡', '').replaceAll('[Sugestão]', '').trim();
+          final List<dynamic> decoded = jsonDecode(savedJson);
+          for (final item in decoded) {
+            final r = AdminIncomingReport.fromJson(item as Map<String, dynamic>);
+            if (r.id.isNotEmpty) reportMap[r.id] = r;
           }
-
-          // Extrair metadados do corpo da mensagem
-          String author = '';
-          String vehicle = '';
-          String version = '';
-          String devId = '';
-          final descLines = <String>[];
-
-          for (final l in rawMsg.split('\n')) {
-            final tl = l.trim();
-            if (tl.startsWith('👤 Autor:')) {
-              author = tl.replaceAll('👤 Autor:', '').trim();
-            } else if (tl.startsWith('🚗 Veículo:')) {
-              vehicle = tl.replaceAll('🚗 Veículo:', '').trim();
-            } else if (tl.startsWith('📲 VoltDrive v')) {
-              version = tl.replaceAll('📲 VoltDrive v', '').trim();
-            } else if (tl.startsWith('🆔 ID:')) {
-              devId = tl.replaceAll('🆔 ID:', '').trim();
-            } else if (tl.startsWith('📅 Data:')) {
-              // Ignore
-            } else {
-              descLines.add(l);
-            }
-          }
-
-          final desc = descLines.join('\n').trim();
-
-          list.add(AdminIncomingReport(
-            id: id,
-            title: title.isEmpty ? category : title,
-            description: desc,
-            category: category,
-            author: author.isEmpty ? 'Condutor' : author,
-            vehicleName: vehicle.isEmpty ? 'Renault Zoe TVDE' : vehicle,
-            appVersion: version.isEmpty ? '1.0' : version,
-            deviceId: devId,
-            timestamp: dt,
-            priority: priority,
-          ));
         } catch (_) {}
       }
 
+      // 2. Descarregar relatórios do ntfy (usar since=all, nunca since=30d)
+      final url = Uri.parse('https://ntfy.sh/$inboxTopic/json?poll=1&since=all');
+      final request = await _client.getUrl(url);
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final lines = body.split('\n');
+
+        for (final line in lines) {
+          if (line.trim().isEmpty) continue;
+          try {
+            final event = jsonDecode(line);
+            if (event['event'] != 'message') continue;
+
+            final id = event['id'] as String? ?? '';
+            final rawTitle = event['title'] as String? ?? 'Sugestão sem título';
+            final rawMsg = event['message'] as String? ?? '';
+            final priority = (event['priority'] as num?)?.toInt() ?? 3;
+            final timeSeconds = (event['time'] as num?)?.toInt() ?? 0;
+            final dt = timeSeconds > 0
+                ? DateTime.fromMillisecondsSinceEpoch(timeSeconds * 1000)
+                : DateTime.now();
+
+            // Extrair categoria e título limpo
+            String category = '💡 Nova Funcionalidade';
+            String title = rawTitle;
+            if (rawTitle.contains('[Bug]') || rawTitle.contains('🐛')) {
+              category = '🐛 Reportar Erro (Bug)';
+              title = rawTitle.replaceAll('🐛', '').replaceAll('[Bug]', '').trim();
+            } else if (rawTitle.contains('[Melhoria]') || rawTitle.contains('⚡')) {
+              category = '⚡ Melhoria TVDE';
+              title = rawTitle.replaceAll('⚡', '').replaceAll('[Melhoria]', '').trim();
+            } else {
+              category = '💡 Nova Funcionalidade';
+              title = rawTitle.replaceAll('💡', '').replaceAll('[Sugestão]', '').trim();
+            }
+
+            // Extrair metadados do corpo da mensagem
+            String author = '';
+            String vehicle = '';
+            String version = '';
+            String devId = '';
+            final descLines = <String>[];
+
+            for (final l in rawMsg.split('\n')) {
+              final tl = l.trim();
+              if (tl.startsWith('👤 Autor:')) {
+                author = tl.replaceAll('👤 Autor:', '').trim();
+              } else if (tl.startsWith('🚗 Veículo:')) {
+                vehicle = tl.replaceAll('🚗 Veículo:', '').trim();
+              } else if (tl.startsWith('📲 VoltDrive v')) {
+                version = tl.replaceAll('📲 VoltDrive v', '').trim();
+              } else if (tl.startsWith('🆔 ID:')) {
+                devId = tl.replaceAll('🆔 ID:', '').trim();
+              } else if (tl.startsWith('📅 Data:')) {
+                // Ignore
+              } else {
+                descLines.add(l);
+              }
+            }
+
+            final desc = descLines.join('\n').trim();
+
+            final report = AdminIncomingReport(
+              id: id,
+              title: title.isEmpty ? category : title,
+              description: desc,
+              category: category,
+              author: author.isEmpty ? 'Condutor' : author,
+              vehicleName: vehicle.isEmpty ? 'Renault Zoe TVDE' : vehicle,
+              appVersion: version.isEmpty ? '1.0' : version,
+              deviceId: devId,
+              timestamp: dt,
+              priority: priority,
+            );
+
+            if (id.isNotEmpty) {
+              reportMap[id] = report;
+            }
+          } catch (_) {}
+        }
+
+        // Salvar lista consolidada localmente
+        final encoded = jsonEncode(reportMap.values.map((r) => r.toJson()).toList());
+        await prefs.setString(_keySavedIncomingReports, encoded);
+      }
+
+      final list = reportMap.values.toList();
       // Ordenar decrescente por data
       list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
       cachedIncomingReports = list;
 
       // Calcular não lidos
-      final prefs = await SharedPreferences.getInstance();
       final lastReadMs = prefs.getInt(_keyLastReadReportTime) ?? 0;
       final unread = list.where((r) => r.timestamp.millisecondsSinceEpoch > lastReadMs).length;
       unreadAdminReportsCount.value = unread;
@@ -311,15 +362,15 @@ class FeedbackService {
   // Sem estar escrito nas atualizações
   // ==========================================
 
-  /// Envia um ping silencioso uma vez por dia com dados anónimos de utilização
+  /// Envia um ping silencioso periódico com dados anónimos de utilização
   static Future<void> sendHeartbeatPing() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastPing = prefs.getInt(_keyLastHeartbeatTime) ?? 0;
       final nowMs = DateTime.now().millisecondsSinceEpoch;
 
-      // Executa apenas se passaram pelo menos 12 horas desde o último ping
-      if (nowMs - lastPing < 12 * 3600 * 1000) return;
+      // Executa se passaram pelo menos 3 horas desde o último ping
+      if (nowMs - lastPing < 3 * 3600 * 1000) return;
 
       final devId = BuddySafetyService.myDeviceId;
       final ver = UpdateService.currentVersion;
@@ -352,15 +403,26 @@ class FeedbackService {
   /// Consulta e calcula as estatísticas de utilizadores (Apenas visível no Painel do Criador)
   static Future<TelemetryStats> fetchTelemetryStats() async {
     try {
-      final url = Uri.parse('https://ntfy.sh/$telemetryTopic/json?poll=1&since=7d');
+      final prefs = await SharedPreferences.getInstance();
+
+      // 1. Carregar histórico de dispositivos conhecidos guardado no telemóvel
+      final savedDevicesJson = prefs.getString(_keySavedDevicesRegistry) ?? '{}';
+      final Map<String, Map<String, dynamic>> deviceRegistry = {};
+      try {
+        final dynamic decoded = jsonDecode(savedDevicesJson);
+        if (decoded is Map) {
+          decoded.forEach((k, v) {
+            if (v is Map) {
+              deviceRegistry[k.toString()] = Map<String, dynamic>.from(v);
+            }
+          });
+        }
+      } catch (_) {}
+
+      // 2. Descarregar pings recentes (usar since=all, nunca since=7d)
+      final url = Uri.parse('https://ntfy.sh/$telemetryTopic/json?poll=1&since=all');
       final request = await _client.getUrl(url);
       final response = await request.close();
-
-      final Set<String> devices24h = {};
-      final Set<String> devices7d = {};
-      final Map<String, int> cars = {};
-      final Map<String, int> versions = {};
-      int totalPings = 0;
 
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
@@ -386,27 +448,62 @@ class FeedbackService {
                 ? DateTime.fromMillisecondsSinceEpoch(timeSeconds * 1000)
                 : now;
 
-            totalPings++;
-            devices7d.add(devId);
-
-            if (now.difference(dt).inHours <= 24) {
-              devices24h.add(devId);
-            }
-
-            if (car.isNotEmpty) {
-              cars[car] = (cars[car] ?? 0) + 1;
-            }
-            if (ver.isNotEmpty) {
-              versions[ver] = (versions[ver] ?? 0) + 1;
+            if (devId.isNotEmpty) {
+              final existing = deviceRegistry[devId];
+              if (existing == null) {
+                deviceRegistry[devId] = {
+                  'id': devId,
+                  'lastSeen': dt.toIso8601String(),
+                  'car': car,
+                  'ver': ver,
+                };
+              } else {
+                final existingDt = DateTime.tryParse(existing['lastSeen'] as String? ?? '') ?? DateTime(2000);
+                if (dt.isAfter(existingDt)) {
+                  existing['lastSeen'] = dt.toIso8601String();
+                  if (car.isNotEmpty) existing['car'] = car;
+                  if (ver.isNotEmpty) existing['ver'] = ver;
+                }
+              }
             }
           } catch (_) {}
+        }
+
+        // Salvar registo consolidado
+        await prefs.setString(_keySavedDevicesRegistry, jsonEncode(deviceRegistry));
+      }
+
+      // 3. Calcular métricas em tempo real
+      final now = DateTime.now();
+      int active24h = 0;
+      int active7d = 0;
+      final Map<String, int> cars = {};
+      final Map<String, int> versions = {};
+
+      for (final d in deviceRegistry.values) {
+        final lastSeen = DateTime.tryParse(d['lastSeen'] as String? ?? '') ?? now;
+        final diff = now.difference(lastSeen);
+        if (diff.inHours <= 24) {
+          active24h++;
+        }
+        if (diff.inDays <= 7) {
+          active7d++;
+        }
+
+        final car = (d['car'] as String? ?? '').trim();
+        final ver = (d['ver'] as String? ?? '').trim();
+        if (car.isNotEmpty) {
+          cars[car] = (cars[car] ?? 0) + 1;
+        }
+        if (ver.isNotEmpty) {
+          versions[ver] = (versions[ver] ?? 0) + 1;
         }
       }
 
       final stats = TelemetryStats(
-        active24h: devices24h.length,
-        active7d: devices7d.length,
-        totalPings: totalPings,
+        active24h: active24h,
+        active7d: active7d,
+        totalPings: deviceRegistry.length,
         carBreakdown: cars,
         versionBreakdown: versions,
         lastCalculated: DateTime.now(),

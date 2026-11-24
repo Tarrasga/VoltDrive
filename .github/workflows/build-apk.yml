@@ -103,7 +103,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract_version.outputs.VERSION }}
-          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }} (Segurança Máxima & Acesso Secreto)"
+          name: "VoltDrive ${{ steps.extract_version.outputs.VERSION }}"
           files: build/app/outputs/flutter-apk/VoltDrive.apk
           draft: false
           prerelease: false
@@ -111,12 +111,11 @@ jobs:
             ## ⚡ VoltDrive ${{ steps.extract_version.outputs.VERSION }}
 
             ### 🚀 O que há de novo nesta versão:
-            1. **🔒 Painel de Criador Totalmente Invisível e Protegido**:
-               - O acesso ao painel de administração é agora 100% oculto e protegido por chave mestra privada (sem botões ou dicas visíveis para condutores normais).
-               - Capacidade de personalizar a chave mestra diretamente nas opções do criador.
-            2. **🔄 Motor de Atualizações Resiliente & Leitor Otimizado**:
-               - Atualizações sem limites de taxa e permissões de leitor estritas para Uber e Bolt.
-            3. **⚡ Aplicação Ultra-Leve (25 MB)**:
-               - Redução de mais de 95% no tamanho e consumo de bateria.
+            1. **⚡ Melhorias de Estabilidade e Desempenho**:
+               - Otimizações no registo de turnos, cálculo de ganhos e comunicação de sugestões.
+            2. **🚗 Leitor Otimizado para TVDE**:
+               - Maior rapidez e menor consumo de bateria no suporte a Uber e Bolt.
+            3. **🔋 Gestão e Cálculos de Consumo Elétrico**:
+               - Maior precisão nos cálculos de custo de carregamento e autonomia.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -706,7 +706,7 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> with SingleTicker
                   ),
                   const Tab(
                     icon: Icon(Icons.query_stats, size: 20),
-                    text: 'Utilizadores',
+                    text: 'Atividade',
                   ),
                   Tab(
                     icon: const Icon(Icons.folder, size: 20),
@@ -1040,6 +1040,33 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> with SingleTicker
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+
+          // Total Acumulado Registado
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.darkCard,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.darkBorder),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.devices, color: AppTheme.textMuted, size: 18),
+                    SizedBox(width: 8),
+                    Text('Total Histórico Registado:', style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+                  ],
+                ),
+                Text(
+                  '${s?.totalPings ?? 0}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
 

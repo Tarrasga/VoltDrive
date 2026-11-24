@@ -1,7 +1,7 @@
 {
-  "version": "1.0.55",
-  "tag": "v1.0.55",
-  "download_url": "https://github.com/Tarrasga/VoltDrive/releases/download/v1.0.55/VoltDrive.apk",
-  "title": "VoltDrive v1.0.55 (Configuração Supabase & Estabilidade Cloud)",
-  "release_notes": "☁️ Opção de configuração direta de servidor Supabase próprio, mensagens de diagnóstico amigáveis e melhorias na sincronização."
+  "version": "1.0.56",
+  "tag": "v1.0.56",
+  "download_url": "https://github.com/Tarrasga/VoltDrive/releases/download/v1.0.56/VoltDrive.apk",
+  "title": "VoltDrive v1.0.56",
+  "release_notes": "⚡ Melhorias no registo de turnos, leitura otimizada de viagens TVDE e otimizações de estabilidade geral."
 }
