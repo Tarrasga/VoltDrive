@@ -7,7 +7,7 @@ class LocationResult {
   final double accuracy;
   final double speed;
 
-  LocationResult({
+  const LocationResult({
     required this.latitude,
     required this.longitude,
     required this.accuracy,

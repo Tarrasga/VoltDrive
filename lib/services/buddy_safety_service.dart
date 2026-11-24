@@ -250,7 +250,7 @@ class BuddySafetyService {
           } else if (lastKnownLocation != null) {
             await broadcastMyLocation(lastKnownLocation!);
           } else {
-            await broadcastMyLocation(const LocationResult(latitude: 38.65, longitude: -9.15, speed: 0.0, accuracy: 50.0));
+            await broadcastMyLocation(LocationResult(latitude: 38.65, longitude: -9.15, speed: 0.0, accuracy: 50.0));
           }
         } catch (_) {}
       }
