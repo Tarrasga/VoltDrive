@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/vehicle_profile.dart';
 import '../models/financial_goals.dart';
 import '../services/assistant_service.dart';
