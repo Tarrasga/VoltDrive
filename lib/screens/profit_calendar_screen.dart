@@ -1937,6 +1937,18 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
       }
     }
 
+    final prefs = await SharedPreferences.getInstance();
+    bool splitByPlatform = prefs.getBool('voltdrive_split_earnings_by_platform') ??
+        (existingShift != null && (existingShift.uberGross > 0 || existingShift.boltGross > 0 || existingShift.otherEarnings > 0));
+    final enableUber = prefs.getBool('voltdrive_enable_uber') ?? true;
+    final enableBolt = prefs.getBool('voltdrive_enable_bolt') ?? true;
+    final enableTips = prefs.getBool('voltdrive_enable_tips') ?? true;
+    final enableOther = prefs.getBool('voltdrive_enable_other') ?? true;
+
+    final uberCtrl = TextEditingController(text: existingShift != null && existingShift.uberGross > 0 ? existingShift.uberGross.toStringAsFixed(2) : '');
+    final boltCtrl = TextEditingController(text: existingShift != null && existingShift.boltGross > 0 ? existingShift.boltGross.toStringAsFixed(2) : '');
+    final otherCtrl = TextEditingController(text: existingShift != null && existingShift.otherEarnings > 0 ? existingShift.otherEarnings.toStringAsFixed(2) : '');
+
     final earningsVal = existingShift != null
         ? (existingShift.driverEarnings > 0
             ? existingShift.driverEarnings.toStringAsFixed(2)
@@ -1961,7 +1973,10 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
         builder: (dlgCtx, setModalState) {
           double parseVal(TextEditingController c) => double.tryParse(c.text.replaceAll(',', '.')) ?? 0.0;
 
-          final earnings = parseVal(earningsCtrl);
+          final uVal = parseVal(uberCtrl);
+          final bVal = parseVal(boltCtrl);
+          final oVal = parseVal(otherCtrl);
+          final earnings = splitByPlatform ? (uVal + bVal + oVal) : parseVal(earningsCtrl);
           final tips = parseVal(tipsCtrl);
           final startKm = parseVal(startKmCtrl);
           final endKm = parseVal(endKmCtrl);
@@ -2008,41 +2023,172 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                   const SizedBox(height: 12),
 
                   // DINHEIRO GANHO NO TURNO
-                  const Text('1. Dinheiro Ganho no Turno', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.accentGreen)),
-                  const SizedBox(height: 6),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        flex: 3,
-                        child: TextField(
-                          controller: earningsCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                          decoration: const InputDecoration(
-                            labelText: 'Dinheiro para mim (€)',
-                            hintText: '0.00',
-                            prefixIcon: Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppTheme.accentGreen),
-                            helperText: 'Líquido que fica para ti',
+                      const Text('1. Dinheiro Ganho no Turno', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.accentGreen)),
+                      InkWell(
+                        onTap: () async {
+                          setModalState(() {
+                            splitByPlatform = !splitByPlatform;
+                          });
+                          await prefs.setBool('voltdrive_split_earnings_by_platform', splitByPlatform);
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: splitByPlatform ? AppTheme.accentGreen.withOpacity(0.18) : AppTheme.darkSurface,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: splitByPlatform ? AppTheme.accentGreen : AppTheme.darkBorder),
                           ),
-                          onChanged: (_) => setModalState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 2,
-                        child: TextField(
-                          controller: tipsCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(
-                            labelText: 'Gorjetas (€)',
-                            hintText: '0.00',
-                            prefixIcon: Icon(Icons.volunteer_activism, size: 18, color: AppTheme.primaryElectric),
+                          child: Row(
+                            children: [
+                              Icon(splitByPlatform ? Icons.tune : Icons.add_circle_outline, size: 12, color: splitByPlatform ? AppTheme.accentGreen : AppTheme.textMuted),
+                              const SizedBox(width: 4),
+                              Text(
+                                splitByPlatform ? 'Empresas (Uber/Bolt)' : '+ Uber, Bolt...',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: splitByPlatform ? AppTheme.accentGreen : AppTheme.textMuted,
+                                ),
+                              ),
+                            ],
                           ),
-                          onChanged: (_) => setModalState(() {}),
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 6),
+                  if (splitByPlatform) ...[
+                    Builder(builder: (_) {
+                      final total = uVal + bVal + oVal + tips;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentGreen.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.accentGreen.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.calculate_outlined, color: AppTheme.accentGreen, size: 18),
+                                SizedBox(width: 6),
+                                Text('Total Faturado:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+                              ],
+                            ),
+                            Text(
+                              '${total.toStringAsFixed(2)} €',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.accentGreen),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    if (enableUber) ...[
+                      TextField(
+                        controller: uberCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Uber (€)',
+                          hintText: '0.00',
+                          prefixIcon: Icon(Icons.directions_car, color: AppTheme.accentGreen, size: 18),
+                        ),
+                        onChanged: (_) {
+                          earningsCtrl.text = (parseVal(uberCtrl) + parseVal(boltCtrl) + parseVal(otherCtrl)).toStringAsFixed(2);
+                          setModalState(() {});
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (enableBolt) ...[
+                      TextField(
+                        controller: boltCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Bolt (€)',
+                          hintText: '0.00',
+                          prefixIcon: Icon(Icons.bolt, color: AppTheme.warningAmber, size: 18),
+                        ),
+                        onChanged: (_) {
+                          earningsCtrl.text = (parseVal(uberCtrl) + parseVal(boltCtrl) + parseVal(otherCtrl)).toStringAsFixed(2);
+                          setModalState(() {});
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (enableOther) ...[
+                      TextField(
+                        controller: otherCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Outras / Particulares (€)',
+                          hintText: '0.00',
+                          prefixIcon: Icon(Icons.receipt_long, color: Colors.tealAccent, size: 18),
+                        ),
+                        onChanged: (_) {
+                          earningsCtrl.text = (parseVal(uberCtrl) + parseVal(boltCtrl) + parseVal(otherCtrl)).toStringAsFixed(2);
+                          setModalState(() {});
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (enableTips) ...[
+                      TextField(
+                        controller: tipsCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Gorjetas (€)',
+                          hintText: '0.00',
+                          prefixIcon: Icon(Icons.volunteer_activism, size: 18, color: AppTheme.primaryElectric),
+                        ),
+                        onChanged: (_) => setModalState(() {}),
+                      ),
+                    ],
+                  ] else ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: earningsCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                            decoration: const InputDecoration(
+                              labelText: 'Dinheiro para mim (€)',
+                              hintText: '0.00',
+                              prefixIcon: Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppTheme.accentGreen),
+                              helperText: 'Líquido que fica para ti',
+                            ),
+                            onChanged: (_) => setModalState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: tipsCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              labelText: 'Gorjetas (€)',
+                              hintText: '0.00',
+                              prefixIcon: Icon(Icons.volunteer_activism, size: 18, color: AppTheme.primaryElectric),
+                            ),
+                            onChanged: (_) => setModalState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
 
                   const SizedBox(height: 14),
 
@@ -2213,13 +2359,18 @@ class _ProfitCalendarScreenState extends State<ProfitCalendarScreen> {
                   // BOTÃO DE GUARDAR
                   ElevatedButton(
                     onPressed: () async {
+                      final u = parseVal(uberCtrl);
+                      final b = parseVal(boltCtrl);
+                      final o = parseVal(otherCtrl);
+                      final finalDriverEarnings = splitByPlatform ? (u + b + o) : earnings;
+
                       final newShift = DailyShift(
                         id: existingShift?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
                         date: date,
-                        driverEarnings: earnings,
-                        uberGross: existingShift?.uberGross ?? 0.0,
-                        boltGross: existingShift?.boltGross ?? 0.0,
-                        otherEarnings: existingShift?.otherEarnings ?? 0.0,
+                        driverEarnings: finalDriverEarnings,
+                        uberGross: splitByPlatform ? u : (existingShift?.uberGross ?? 0.0),
+                        boltGross: splitByPlatform ? b : (existingShift?.boltGross ?? 0.0),
+                        otherEarnings: splitByPlatform ? o : (existingShift?.otherEarnings ?? 0.0),
                         tips: tips,
                         startKm: startKm,
                         endKm: endKm,

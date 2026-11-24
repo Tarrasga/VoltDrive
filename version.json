@@ -1,7 +1,7 @@
 {
-  "version": "1.0.58",
-  "tag": "v1.0.58",
-  "download_url": "https://github.com/Tarrasga/VoltDrive/releases/download/v1.0.58/VoltDrive.apk",
-  "title": "VoltDrive v1.0.58",
-  "release_notes": "⚡ Manutenção do estado Online nos grupos de segurança em segundo plano (2º plano) e confirmação de leitura em mensagens e sugestões."
+  "version": "1.0.59",
+  "tag": "v1.0.59",
+  "download_url": "https://github.com/Tarrasga/VoltDrive/releases/download/v1.0.59/VoltDrive.apk",
+  "title": "VoltDrive v1.0.59",
+  "release_notes": "🚗 Botão direto '+ Uber, Bolt...' no Calendário de Lucros e Turnos para alternar entre plataformas e valor total com 1 toque."
 }

@@ -944,16 +944,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-            const SizedBox(height: 18),
-
-            ElevatedButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Guardar Definições'),
-            ),
-
-            const SizedBox(height: 18),
-
             // PLATAFORMAS & FATURAÇÃO NO TURNO
             Card(
               child: Padding(
@@ -1070,6 +1060,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
+            ),
+
+            const SizedBox(height: 18),
+
+            ElevatedButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Guardar Definições'),
             ),
 
             const SizedBox(height: 12),

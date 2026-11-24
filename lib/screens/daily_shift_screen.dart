@@ -311,27 +311,57 @@ class _DailyShiftScreenState extends State<DailyShiftScreen> {
                             ),
                           ],
                         ),
-                        InkWell(
-                          onTap: () async {
-                            await Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
-                            await _loadProfile();
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryElectric.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.tune, size: 13, color: AppTheme.primaryElectric),
-                                SizedBox(width: 4),
-                                Text('Definições', style: TextStyle(color: AppTheme.primaryElectric, fontSize: 11, fontWeight: FontWeight.bold)),
-                              ],
+                      Row(
+                        children: [
+                          InkWell(
+                            onTap: () async {
+                              setState(() => _splitEarningsByPlatform = !_splitEarningsByPlatform);
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setBool('voltdrive_split_earnings_by_platform', _splitEarningsByPlatform);
+                              _updatePlatformEarningsSum();
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _splitEarningsByPlatform ? AppTheme.accentGreen.withOpacity(0.18) : AppTheme.darkSurface,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: _splitEarningsByPlatform ? AppTheme.accentGreen : AppTheme.darkBorder),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(_splitEarningsByPlatform ? Icons.tune : Icons.add_circle_outline, size: 13, color: _splitEarningsByPlatform ? AppTheme.accentGreen : AppTheme.textMuted),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _splitEarningsByPlatform ? 'Empresas (Uber/Bolt)' : '+ Uber, Bolt...',
+                                    style: TextStyle(
+                                      color: _splitEarningsByPlatform ? AppTheme.accentGreen : AppTheme.textMuted,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: () async {
+                              await Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                              await _loadProfile();
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryElectric.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.settings, size: 14, color: AppTheme.primaryElectric),
+                            ),
+                          ),
+                        ],
+                      ),
                       ],
                     ),
                     const SizedBox(height: 6),
