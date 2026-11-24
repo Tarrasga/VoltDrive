@@ -84,9 +84,13 @@ class FeedbackService {
 
   static const String _keyAdminMode = 'voltdrive_admin_mode_active';
   static const String _keyLastReadReportTime = 'voltdrive_last_read_report_time';
+  static const String _keyReadReportIds = 'voltdrive_read_report_ids';
   static const String _keyLastHeartbeatTime = 'voltdrive_last_heartbeat_time';
 
   static bool isAdminMode = false;
+  static int _lastReadTimeMs = 0;
+  static Set<String> readReportIds = {};
+
   static final ValueNotifier<int> unreadAdminReportsCount = ValueNotifier<int>(0);
   static final ValueNotifier<int> incomingReportsNotifier = ValueNotifier<int>(0);
 
@@ -107,6 +111,9 @@ class FeedbackService {
     try {
       final prefs = await SharedPreferences.getInstance();
       isAdminMode = prefs.getBool(_keyAdminMode) ?? false;
+      _lastReadTimeMs = prefs.getInt(_keyLastReadReportTime) ?? 0;
+      final readList = prefs.getStringList(_keyReadReportIds) ?? [];
+      readReportIds = readList.toSet();
 
       // Executa o heartbeat de telemetria discretamente em segundo plano
       unawaited(sendHeartbeatPing());
@@ -333,10 +340,10 @@ class FeedbackService {
       cachedIncomingReports = list;
 
       // Calcular não lidos
-      final lastReadMs = prefs.getInt(_keyLastReadReportTime) ?? 0;
-      final unread = list.where((r) => r.timestamp.millisecondsSinceEpoch > lastReadMs).length;
-      unreadAdminReportsCount.value = unread;
-      incomingReportsNotifier.value++;
+      _lastReadTimeMs = prefs.getInt(_keyLastReadReportTime) ?? 0;
+      final readList = prefs.getStringList(_keyReadReportIds) ?? [];
+      readReportIds.addAll(readList);
+      _recalculateUnread();
 
       return list;
     } catch (e) {
@@ -345,16 +352,53 @@ class FeedbackService {
     }
   }
 
-  /// Verifica se existem novos relatórios não lidos
-  static Future<void> checkForNewReports() async {
-    await fetchIncomingReports();
+  /// Verifica se um reporte específico já foi lido pelo criador
+  static bool isReportRead(AdminIncomingReport r) {
+    if (readReportIds.contains(r.id)) return true;
+    if (_lastReadTimeMs > 0 && r.timestamp.millisecondsSinceEpoch <= _lastReadTimeMs) return true;
+    return false;
+  }
+
+  /// Confirma e marca um reporte individual como lido
+  static Future<void> markReportAsRead(String id) async {
+    readReportIds.add(id);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyReadReportIds, readReportIds.toList());
+    _recalculateUnread();
   }
 
   /// Marca todos os relatórios como lidos
   static Future<void> markAllReportsAsRead() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_keyLastReadReportTime, DateTime.now().millisecondsSinceEpoch);
-    unreadAdminReportsCount.value = 0;
+    _lastReadTimeMs = DateTime.now().millisecondsSinceEpoch;
+    await prefs.setInt(_keyLastReadReportTime, _lastReadTimeMs);
+    for (final r in cachedIncomingReports) {
+      readReportIds.add(r.id);
+    }
+    await prefs.setStringList(_keyReadReportIds, readReportIds.toList());
+    _recalculateUnread();
+  }
+
+  /// Elimina um reporte da caixa de entrada do criador
+  static Future<void> deleteIncomingReport(String id) async {
+    cachedIncomingReports.removeWhere((r) => r.id == id);
+    readReportIds.remove(id);
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(cachedIncomingReports.map((r) => r.toJson()).toList());
+    await prefs.setString(_keySavedIncomingReports, encoded);
+    await prefs.setStringList(_keyReadReportIds, readReportIds.toList());
+    _recalculateUnread();
+  }
+
+  static void _recalculateUnread() {
+    final unread = cachedIncomingReports.where((r) => !isReportRead(r)).length;
+    unreadAdminReportsCount.value = unread;
+    incomingReportsNotifier.value++;
+  }
+
+  /// Verifica se existem novos relatórios não lidos
+  static Future<void> checkForNewReports() async {
+    await fetchIncomingReports();
   }
 
   // ==========================================

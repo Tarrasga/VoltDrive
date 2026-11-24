@@ -4,13 +4,24 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.Color
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.nio.charset.StandardCharsets
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import java.util.regex.Pattern
 import kotlin.math.abs
+import org.json.JSONArray
+import org.json.JSONObject
 
 class VoltAccessibilityService : AccessibilityService() {
 
@@ -29,6 +40,14 @@ class VoltAccessibilityService : AccessibilityService() {
     private val distKmPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*km\\b", Pattern.CASE_INSENSITIVE)
     private val distMeterPattern = Pattern.compile("\\b([0-9]{2,4})\\s*m\\b", Pattern.CASE_INSENSITIVE)
 
+    private val presenceHandler = Handler(Looper.getMainLooper())
+    private val presenceRunnable = object : Runnable {
+        override fun run() {
+            sendBackgroundPresencePing()
+            presenceHandler.postDelayed(this, 60000L) // Repete pings de presença a cada 60s
+        }
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
@@ -36,14 +55,83 @@ class VoltAccessibilityService : AccessibilityService() {
         val prefs = getSharedPreferences("voltdrive_prefs", Context.MODE_PRIVATE)
         isReadingPaused = prefs.getBoolean("screen_reader_paused", false)
         android.util.Log.i("VoltDrive", "VoltAccessibilityService connected, isReadingPaused=$isReadingPaused")
+
+        presenceHandler.removeCallbacks(presenceRunnable)
+        presenceHandler.postDelayed(presenceRunnable, 10000L)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         instance = null
         isServiceRunning = false
+        presenceHandler.removeCallbacks(presenceRunnable)
         OverlayManager.hideOverlay()
         android.util.Log.i("VoltDrive", "VoltAccessibilityService destroyed.")
+    }
+
+    private fun sendBackgroundPresencePing() {
+        Thread {
+            try {
+                val prefs = getSharedPreferences("voltdrive_prefs", Context.MODE_PRIVATE)
+                val sharingActive = prefs.getBoolean("buddy_sharing_active", false)
+                val topic = prefs.getString("buddy_presence_topic", "") ?: ""
+                if (!sharingActive || topic.isEmpty()) return@Thread
+
+                val deviceId = prefs.getString("buddy_device_id", "") ?: ""
+                val driverName = prefs.getString("buddy_driver_name", "Condutor TVDE") ?: "Condutor TVDE"
+                val vehicleName = prefs.getString("buddy_vehicle_name", "Renault Zoe Z.E.") ?: "Renault Zoe Z.E."
+                val lat = prefs.getFloat("buddy_last_lat", 38.65f).toDouble()
+                val lng = prefs.getFloat("buddy_last_lng", -9.15f).toDouble()
+
+                val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+                sdf.timeZone = TimeZone.getTimeZone("UTC")
+                val nowStr = sdf.format(Date())
+
+                val innerMsg = JSONObject().apply {
+                    put("type", "ping")
+                    put("id", deviceId)
+                    put("device_id", deviceId)
+                    put("name", driverName)
+                    put("vehicle", vehicleName)
+                    put("lat", lat)
+                    put("lng", lng)
+                    put("battery", 80)
+                    put("status", "A Rodar")
+                    put("speed", 0.0)
+                    put("time", nowStr)
+                }
+
+                val root = JSONObject().apply {
+                    put("topic", topic)
+                    put("title", "Ping: $driverName")
+                    put("message", innerMsg.toString())
+                    put("priority", 1)
+                    val tagsArr = JSONArray().apply {
+                        put("voltdrive_ping")
+                        put("car")
+                        put("dev-$deviceId")
+                    }
+                    put("tags", tagsArr)
+                }
+
+                val url = URL("https://ntfy.sh")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                conn.doOutput = true
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+
+                val bytes = root.toString().toByteArray(StandardCharsets.UTF_8)
+                conn.outputStream.use { os ->
+                    os.write(bytes)
+                }
+                val code = conn.responseCode
+                conn.disconnect()
+            } catch (e: Exception) {
+                // Heartbeat silencioso em segundo plano
+            }
+        }.start()
     }
 
     override fun onInterrupt() {

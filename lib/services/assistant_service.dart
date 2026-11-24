@@ -272,7 +272,7 @@ class AssistantService {
         return res;
       }
     } catch (_) {}
-    return '1.0.57';
+    return '1.0.58';
   }
 
   static Future<void> hideOverlay() async {
@@ -356,6 +356,30 @@ class AssistantService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Sincroniza as credenciais e tópico do grupo de segurança com o Android nativo
+  /// para permitir envio autónomo de pings de presença mesmo com a app em 2º plano.
+  static Future<void> syncBuddyPresence({
+    required String topic,
+    required String deviceId,
+    required String driverName,
+    required String vehicleName,
+    required bool isSharingActive,
+    double lat = 38.65,
+    double lng = -9.15,
+  }) async {
+    try {
+      await _channel.invokeMethod('syncBuddyPresence', {
+        'topic': topic,
+        'deviceId': deviceId,
+        'driverName': driverName,
+        'vehicleName': vehicleName,
+        'isSharingActive': isSharingActive,
+        'lat': lat,
+        'lng': lng,
+      });
+    } catch (_) {}
   }
 
   static Future<void> openUrl(String url) async {

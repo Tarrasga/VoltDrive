@@ -788,11 +788,11 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> with SingleTicker
                     await FeedbackService.markAllReportsAsRead();
                     setState(() {});
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Todos os relatórios marcados como vistos!')),
+                      const SnackBar(content: Text('Todas as mensagens marcadas como lidas!')),
                     );
                   },
                   icon: const Icon(Icons.done_all, size: 16, color: AppTheme.accentGreen),
-                  label: const Text('Limpar Não Lidos', style: TextStyle(color: AppTheme.accentGreen, fontSize: 11)),
+                  label: const Text('Marcar Todas Lidas', style: TextStyle(color: AppTheme.accentGreen, fontSize: 11)),
                 ),
               ],
             ),
@@ -847,6 +847,7 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> with SingleTicker
           else
             ...filtered.map((r) {
               final catColor = _getCategoryColor(r.category);
+              final isRead = FeedbackService.isReportRead(r);
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(14),
@@ -854,10 +855,12 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> with SingleTicker
                   color: AppTheme.darkCard,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: r.category.contains('Bug')
-                        ? AppTheme.dangerRed.withOpacity(0.6)
-                        : AppTheme.darkBorder,
-                    width: r.category.contains('Bug') ? 1.5 : 1.0,
+                    color: !isRead
+                        ? AppTheme.accentGreen.withOpacity(0.8)
+                        : (r.category.contains('Bug')
+                            ? AppTheme.dangerRed.withOpacity(0.6)
+                            : AppTheme.darkBorder),
+                    width: !isRead || r.category.contains('Bug') ? 1.5 : 1.0,
                   ),
                 ),
                 child: Column(
@@ -866,17 +869,40 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> with SingleTicker
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: catColor.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: catColor.withOpacity(0.6)),
-                          ),
-                          child: Text(
-                            r.category,
-                            style: TextStyle(color: catColor, fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: catColor.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: catColor.withOpacity(0.6)),
+                              ),
+                              child: Text(
+                                r.category,
+                                style: TextStyle(color: catColor, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isRead ? AppTheme.darkSurface : AppTheme.accentGreen.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isRead ? AppTheme.darkBorder : AppTheme.accentGreen,
+                                ),
+                              ),
+                              child: Text(
+                                isRead ? '✓ Lida' : '🟢 NOVA',
+                                style: TextStyle(
+                                  color: isRead ? AppTheme.textMuted : AppTheme.accentGreen,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         Text(
                           _formatDate(r.timestamp),
@@ -914,14 +940,75 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> with SingleTicker
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        TextButton.icon(
-                          onPressed: () {
-                            _copyText('${r.title}\n${r.description}\n\nAutor: ${r.author}\nCarro: ${r.vehicleName}\nVersão: ${r.appVersion}');
-                          },
-                          icon: const Icon(Icons.copy, size: 14, color: AppTheme.textMuted),
-                          label: const Text('Copiar', style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+                        if (!isRead)
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              await FeedbackService.markReportAsRead(r.id);
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('✓ Mensagem confirmada como lida!'),
+                                  duration: Duration(seconds: 1),
+                                  backgroundColor: AppTheme.accentGreen,
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.check_circle_outline, size: 14),
+                            label: const Text('Confirmar Leitura', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.accentGreen,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          )
+                        else
+                          const Row(
+                            children: [
+                              Icon(Icons.check_circle, size: 14, color: AppTheme.accentGreen),
+                              SizedBox(width: 4),
+                              Text('Lida e confirmada', style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+                            ],
+                          ),
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: () {
+                                _copyText('${r.title}\n${r.description}\n\nAutor: ${r.author}\nCarro: ${r.vehicleName}\nVersão: ${r.appVersion}');
+                              },
+                              icon: const Icon(Icons.copy, size: 13, color: AppTheme.textMuted),
+                              label: const Text('Copiar', style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerRed),
+                              tooltip: 'Eliminar Mensagem',
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (dCtx) => AlertDialog(
+                                    backgroundColor: AppTheme.darkCard,
+                                    title: const Text('Eliminar Mensagem?'),
+                                    content: const Text('Tens a certeza que queres eliminar este reporte da tua lista?'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Cancelar')),
+                                      ElevatedButton(
+                                        onPressed: () => Navigator.pop(dCtx, true),
+                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerRed),
+                                        child: const Text('Eliminar'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  await FeedbackService.deleteIncomingReport(r.id);
+                                  setState(() {});
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),

@@ -27,6 +27,7 @@ class BuddySafetyService {
   static bool isSharingActive = true;
   static String myDeviceId = '';
   static int _pingCounter = 0;
+  static LocationResult? lastKnownLocation;
 
   // Canal seguro derivado com nome e palavra-passe
   static String get effectiveChannelTopic {
@@ -117,6 +118,16 @@ class BuddySafetyService {
     // Carregar colegas previamente conhecidos da equipa guardados localmente
     await _loadColleaguesFromPrefs();
 
+    unawaited(AssistantService.syncBuddyPresence(
+      topic: effectiveChannelTopic,
+      deviceId: myDeviceId,
+      driverName: driverName,
+      vehicleName: vehicleName,
+      isSharingActive: isSharingActive,
+      lat: lastKnownLocation?.latitude ?? 38.65,
+      lng: lastKnownLocation?.longitude ?? -9.15,
+    ));
+
     startPolling();
   }
 
@@ -178,6 +189,17 @@ class BuddySafetyService {
 
     // Carrega a lista de colegas correspondente ao novo canal/equipa
     await _loadColleaguesFromPrefs();
+
+    unawaited(AssistantService.syncBuddyPresence(
+      topic: effectiveChannelTopic,
+      deviceId: myDeviceId,
+      driverName: driverName,
+      vehicleName: vehicleName,
+      isSharingActive: isSharingActive,
+      lat: lastKnownLocation?.latitude ?? 38.65,
+      lng: lastKnownLocation?.longitude ?? -9.15,
+    ));
+
     updatesNotifier.value++;
     startPolling();
   }
@@ -223,7 +245,12 @@ class BuddySafetyService {
         try {
           final loc = await AssistantService.getCurrentLocation();
           if (loc != null) {
+            lastKnownLocation = loc;
             await broadcastMyLocation(loc);
+          } else if (lastKnownLocation != null) {
+            await broadcastMyLocation(lastKnownLocation!);
+          } else {
+            await broadcastMyLocation(const LocationResult(latitude: 38.65, longitude: -9.15, speed: 0.0, accuracy: 50.0));
           }
         } catch (_) {}
       }
@@ -245,10 +272,22 @@ class BuddySafetyService {
 
   static Future<void> broadcastMyLocation(LocationResult loc, {int battery = 80, String status = 'A Rodar'}) async {
     if (!isSharingActive) return;
+    lastKnownLocation = loc;
+    final topic = effectiveChannelTopic;
+
+    unawaited(AssistantService.syncBuddyPresence(
+      topic: topic,
+      deviceId: myDeviceId,
+      driverName: driverName,
+      vehicleName: vehicleName,
+      isSharingActive: isSharingActive,
+      lat: loc.latitude,
+      lng: loc.longitude,
+    ));
+
     try {
       final client = _httpClient;
 
-      final topic = effectiveChannelTopic;
       final url = Uri.parse('https://ntfy.sh');
       final request = await client.postUrl(url);
       request.headers.contentType = ContentType.json;

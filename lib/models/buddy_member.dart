@@ -63,14 +63,16 @@ class BuddyMember {
 
   String get googleMapsUrl => 'https://maps.google.com/?q=$latitude,$longitude';
 
-  /// Considerado online se transmitiu sinal nos últimos 5 minutos
-  bool get isOnline => DateTime.now().difference(updatedAt).inMinutes <= 5;
+  /// Considerado online se transmitiu sinal nos últimos 15 minutos (abrangendo 2º plano)
+  bool get isOnline => DateTime.now().difference(updatedAt).inMinutes <= 15;
 
   /// Texto amigável de estado e última vez visto
   String get lastSeenText {
     final diff = DateTime.now().difference(updatedAt);
-    if (diff.inMinutes <= 5) {
+    if (diff.inMinutes <= 4) {
       return 'Online';
+    } else if (diff.inMinutes <= 15) {
+      return 'Online (2º Plano)';
     } else if (diff.inMinutes < 60) {
       return 'Offline há ${diff.inMinutes}m';
     } else if (diff.inHours < 24) {

@@ -351,6 +351,28 @@ class MainActivity: FlutterFragmentActivity() {
                 "getLocation" -> {
                     fetchCurrentLocation(result)
                 }
+                "syncBuddyPresence" -> {
+                    val topic = call.argument<String>("topic") ?: ""
+                    val deviceId = call.argument<String>("deviceId") ?: ""
+                    val driverName = call.argument<String>("driverName") ?: ""
+                    val vehicleName = call.argument<String>("vehicleName") ?: ""
+                    val isSharingActive = call.argument<Boolean>("isSharingActive") ?: false
+                    val lat = call.argument<Double>("lat") ?: 38.65
+                    val lng = call.argument<Double>("lng") ?: -9.15
+
+                    val prefs = getSharedPreferences("voltdrive_prefs", Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putString("buddy_presence_topic", topic)
+                        .putString("buddy_device_id", deviceId)
+                        .putString("buddy_driver_name", driverName)
+                        .putString("buddy_vehicle_name", vehicleName)
+                        .putBoolean("buddy_sharing_active", isSharingActive)
+                        .putFloat("buddy_last_lat", lat.toFloat())
+                        .putFloat("buddy_last_lng", lng.toFloat())
+                        .apply()
+
+                    result.success(true)
+                }
                 "openUrl" -> {
                     val url = call.argument<String>("url") ?: ""
                     if (url.isNotEmpty()) {
@@ -532,10 +554,10 @@ class MainActivity: FlutterFragmentActivity() {
                             @Suppress("DEPRECATION")
                             packageManager.getPackageInfo(packageName, 0)
                         }
-                        val vName = pInfo.versionName ?: "1.0.57"
+                        val vName = pInfo.versionName ?: "1.0.58"
                         result.success(vName)
                     } catch (e: Exception) {
-                        result.success("1.0.57")
+                        result.success("1.0.58")
                     }
                 }
                 else -> result.notImplemented()
